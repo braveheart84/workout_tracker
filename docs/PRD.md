@@ -23,6 +23,7 @@ This app replaces that workflow with a single tool that knows the user's recent 
 - Give the user a history/view of recent workouts so both they and the AI generator can see what's been trained recently.
 - Let the user see trends and charts of their progress over time (e.g. load progression per exercise, run pace/distance over time, training volume/frequency).
 - Let the user rate how a completed workout felt (too easy ↔ too hard), and feed that signal into future AI-generated suggestions so intensity self-adjusts over time.
+- Let the user quickly check how to perform an unfamiliar exercise (a link and, where available, a YouTube video) without leaving the app. *(Nice-to-have.)*
 - Support multiple user accounts on a shared, hosted backend (not just a single local user).
 - Make the two core actions — generating workout(s) and logging one while training — fast and convenient enough to use comfortably standing in a gym, in a handful of taps.
 
@@ -56,6 +57,7 @@ Secondary users: friends/family who could sign up and use the same hosted app fo
 11. **As a user**, I want to generate a whole week of workouts at once instead of one day at a time, so I only have to plan once and then just show up and train.
 12. **As a user**, I want to open the app, see today's planned workout, and tap one button to start logging, so there's no setup friction between deciding to train and actually training.
 13. **As a user**, I want to glance at the exercises in a planned workout before I start, so I know what I'm about to do and can mentally prepare (or swap the day) without having to already be in the middle of logging.
+14. **As a user**, I want to tap an unfamiliar exercise the AI suggested and see a quick explanation or video of how to do it, so I don't have to leave the app and search elsewhere mid-workout.
 
 ## 6. Core User Flows
 
@@ -94,6 +96,7 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 - Each suggestion is a structured workout: one or more blocks, each with its exercises, round count, and suggested sets/reps/weight/duration/distance as appropriate per exercise (and target muscle group), and, for a run suggestion, a suggested type/duration/effort.
 - The user can regenerate, edit, or accept each suggestion — individually, even within a multi-day batch.
 - Accepting a suggestion saves it as a **planned** workout tied to a date, ready to be started (see 7.4).
+- When the suggestion introduces an exercise new to the user's library, the app attaches a how-to reference (see 7.4) automatically where possible, so unfamiliar exercises aren't a dead end. *(Nice-to-have — see 7.4 for how this degrades gracefully when unavailable.)*
 
 ### 7.3 Workout Plan & Day Selection
 - A "Today" view shows the current day's planned workout front and center (if one exists), with a single primary action to start it.
@@ -101,6 +104,7 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 - The user can start an ad-hoc workout with no prior plan (skips straight to 7.4 with an empty session), for days with no generated plan.
 - Days with no planned or logged workout are visually distinguished from planned/completed days.
 - Selecting a planned day opens a **workout review screen** before logging starts: a compact, high-level summary of the session's blocks and exercises (exercise names, round counts, target sets/reps/weight or duration/distance) so the user can glance at the whole session at once. "Start Workout" is the primary action on this screen; the user can also edit the plan or go back and pick a different day from here instead of committing.
+- Any exercise with a how-to reference (7.4) shows a small info icon on this screen, so the user can check technique on unfamiliar movements before they even start.
 
 ### 7.4 Starting & Logging a Workout
 - User taps "Start Workout" from the review screen (7.3) on a planned (or ad-hoc) session, which marks it **in progress** and opens a focused logging view.
@@ -115,6 +119,7 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 - Optional per-exercise note captured for next time (e.g. "increase to 25kg next session").
 - Edit or delete blocks/exercises/sets within a session, including mid-workout.
 - Exercises should be selectable from a reusable list (avoid re-typing "Bench Press" every time) — a personal exercise library that grows as the user logs new exercise names, and each library entry remembers its default set type (reps, duration, or distance).
+- **Exercise how-to (nice-to-have):** each exercise library entry can carry an optional instructional link (article/guide) and an optional YouTube video link. Where an exercise has either, an info icon appears next to it in the review screen (7.3) and the logging view, opening the link(s) without leaving the workout. The user can add or edit these links manually at any time; if the AI-generation flow (7.2) can supply a link automatically when introducing a new exercise, it does so as a default the user can override. If no link is available for an exercise, the app falls back to a generated YouTube search link for the exercise name rather than showing nothing.
 - User taps "Finish Workout" when done, which marks the session **completed** and triggers Post-Workout Feedback (7.5).
 
 ### 7.5 Post-Workout Feedback
@@ -155,7 +160,7 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 ## 9. Data Model (Initial Sketch)
 
 - **User**: id, email, password hash, created_at
-- **Exercise** (per-user library): id, user_id, name, default muscle group (optional), default set type (reps / duration / distance)
+- **Exercise** (per-user library): id, user_id, name, default muscle group (optional), default set type (reps / duration / distance), instructions_url (optional), video_url (optional)
 - **WorkoutPlan**: id, user_id, start_date, num_days, source_prompt (optional), created_at — groups a batch of sessions generated together in one Flow 1 request; a single-day generation is just a plan with num_days = 1
 - **WorkoutSession**: id, user_id, plan_id (nullable), date, status (planned / in_progress / completed), type (strength / run), label, warmup_notes, finisher_notes, cooldown_notes, energy_rating (1–10, optional), difficulty_rating (1–5, "Too Easy"–"Too Hard", optional), difficulty_note (optional), goal_for_next (optional), source (manual / ai_generated), created_at, started_at (optional), completed_at (optional)
 - **WorkoutBlock**: id, session_id, order, round_count, rest_seconds (optional) — a block groups one or more exercises done together for N rounds; a single-exercise, 1-round block is just a normal exercise
@@ -187,6 +192,7 @@ Final stack choice is an engineering decision to be made at implementation time;
 - Should workout templates/plans (multi-day programs) be supported as reusable templates, or is each week generated independently every time?
 - Should there be an in-app rest timer during a workout (counting down a block's rest_seconds), or is that left to the user's own device/watch?
 - If a planned day is skipped entirely (never started), should it just sit there indefinitely, or should the next generation request offer to reschedule/discard unstarted planned days?
+- Exercise how-to links (7.4): is automatic link/video sourcing feasible at implementation time (e.g. via LLM knowledge, a search API, or a curated lookup table for common exercises), or should v1 ship with manual-entry only and treat auto-suggestion as a fast-follow?
 
 ## 12. Success Metrics
 
