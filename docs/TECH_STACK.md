@@ -13,9 +13,9 @@ This document details the technology stack chosen to build the Workout Tracker d
 |---|---|
 | Frontend | Next.js (App Router) + React + TypeScript, Tailwind CSS, shadcn/ui |
 | Backend | Next.js Route Handlers (same codebase as frontend) |
-| Database | PostgreSQL (managed, e.g. Neon or Supabase) via Prisma ORM |
+| Database | PostgreSQL, hosted on Supabase, via Prisma ORM |
 | Auth | Auth.js (NextAuth) with credentials provider |
-| File storage | S3-compatible object storage (e.g. Cloudflare R2 or Supabase Storage) |
+| File storage | Supabase Storage |
 | LLM (text + vision) | Anthropic Claude API |
 | Charting | Recharts |
 | PWA | `@ducanh2912/next-pwa` (manifest + service worker) |
@@ -42,7 +42,8 @@ A single TypeScript codebase (Next.js) covers frontend and backend, which keeps 
 ## 4. Database
 
 - **Engine:** PostgreSQL — relational fits the nested structure in PRD Section 9 well (`WorkoutSession` → `WorkoutBlock` → `WorkoutExercise` → `Set`), and gives real transactions when saving a full generated plan or a completed workout in one go.
-- **Hosting:** a managed serverless Postgres provider — **Neon** (generous free tier, branching for preview environments, scales to zero when idle) or **Supabase** (Postgres + built-in Storage + Auth, if consolidating vendors is preferred — see Section 6/7 alternatives). Either satisfies PRD Section 8's "hosted database, survives across devices" requirement.
+- **Hosting:** **Supabase** — chosen over Neon primarily because it bundles Storage (Section 6) with the database, so screenshot uploads and workout data live behind one vendor/dashboard instead of two. We're using it as a plain managed Postgres + Storage host via Prisma, not adopting Supabase's client SDK or its auto-generated REST/Realtime APIs — Auth stays on Auth.js (Section 7), kept independent of the DB provider. Satisfies PRD Section 8's "hosted database, survives across devices" requirement.
+- **Free-tier caveat:** Supabase free projects pause after a week of inactivity, which could affect a low-traffic personal app — the app should either ping the DB on a schedule to keep it awake, or accept an occasional manual resume from the Supabase dashboard, or move to the paid tier (~$25/mo) if this becomes a real annoyance in practice.
 - **ORM:** Prisma — typed queries and migrations matching the schema sketch in PRD Section 9, straightforward to evolve as the schema firms up during implementation.
 - **Schema mapping:** the Prisma schema follows PRD Section 9 directly: `User`, `Exercise`, `WorkoutPlan`, `WorkoutSession`, `WorkoutBlock`, `WorkoutExercise`, `Set`, `Run`.
 
@@ -57,8 +58,8 @@ A single TypeScript codebase (Next.js) covers frontend and backend, which keeps 
 
 ## 6. File Storage
 
-- **Choice:** S3-compatible object storage for uploaded Strava screenshots (PRD 7.6), which are stored alongside the extracted data as a visual record.
-- **Recommendation:** Cloudflare R2 (S3-compatible API, no egress fees) or Supabase Storage (bundled with the DB choice, simpler if consolidating on Supabase). Either integrates cleanly with the Next.js backend via a presigned-upload flow, so screenshots go straight from the browser to storage rather than through the API server.
+- **Choice:** Supabase Storage, for uploaded Strava screenshots (PRD 7.6), which are stored alongside the extracted data as a visual record.
+- **Why:** bundled with the database choice (Section 4) — one vendor for both, rather than pairing Supabase's Postgres with a separate S3-compatible provider. Storage buckets are gated by a signed-upload flow from the Next.js backend, so screenshots go straight from the browser to storage rather than through the API server.
 
 ## 7. Auth
 
@@ -69,19 +70,19 @@ A single TypeScript codebase (Next.js) covers frontend and backend, which keeps 
 ## 8. Hosting & Deployment
 
 - **Platform:** Vercel — first-class Next.js support (frontend + API routes deploy as one unit), automatic preview deployments per branch/PR, and edge caching for the PWA app shell.
-- **Environments:** production + preview deployments; database branching (if using Neon) to give each preview its own isolated data.
+- **Environments:** production + preview deployments; preview deployments point at a shared Supabase development project (Supabase branching is a paid-tier feature — not adopted for v1) rather than an isolated database per preview.
 
 ## 9. Alternatives Considered
 
 | Decision | Chosen | Alternative(s) considered | Why not (for now) |
 |---|---|---|---|
 | Backend architecture | Next.js Route Handlers (monolith) | Separate Node/Python service | Extra deploy target and network hop not justified at this scale; PRD's own Section 10 already flagged this as an option, but a single codebase is simpler for v1 |
-| Database host | Neon / Supabase | Self-managed Postgres (e.g. on a VPS) | Managed hosting removes backup/patching burden for a small-team project |
+| Database + storage host | Supabase | Neon (DB only, auto-suspend/resume, no pausing) + Cloudflare R2 (storage) | Supabase's bundling of DB + Storage in one vendor/dashboard outweighs Neon's smoother idle behavior for a solo-maintained project; the free-tier pause is a manageable tradeoff (see Section 4) |
 | LLM provider | Anthropic Claude | OpenAI (GPT + vision) | Comparable capability for this use case; Claude chosen to keep a single-vendor integration — revisit if cost/quality differs materially in practice |
-| Auth | Auth.js | Managed auth (Clerk, Supabase Auth) | Auth.js keeps auth in the same codebase/DB rather than adding a vendor; can migrate to a managed provider later without changing the data model |
+| Auth | Auth.js | Supabase Auth, Clerk | Kept independent of the DB/storage vendor decision — Auth.js stays in the same codebase and isn't tied to switching database providers later; can migrate to a managed provider without changing the data model |
 
 ## 10. Open Questions
 
-- Neon vs. Supabase for the database: Supabase would also cover file storage and could cover auth, consolidating vendors at the cost of some flexibility — worth deciding before implementation starts rather than during it.
+- Whether to set up a scheduled keep-alive ping against Supabase to avoid the free-tier pause-after-inactivity behavior (Section 4), or just live with occasional manual resumes until it's annoying enough to justify the paid tier.
 - Confirm Claude model tier (and fallback behavior) once real usage/cost data exists from early testing.
 - If push notifications are built later (PRD Section 11), confirm Vercel Cron + Web Push is sufficient, or whether a dedicated notification service is warranted.
