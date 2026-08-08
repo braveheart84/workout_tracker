@@ -55,6 +55,7 @@ Secondary users: friends/family who could sign up and use the same hosted app fo
 10. **As a user**, I want to rate how a workout felt right after finishing it — too easy, too hard, or about right — so that the next AI-generated suggestion adjusts accordingly instead of repeating something that was already too easy or too hard.
 11. **As a user**, I want to generate a whole week of workouts at once instead of one day at a time, so I only have to plan once and then just show up and train.
 12. **As a user**, I want to open the app, see today's planned workout, and tap one button to start logging, so there's no setup friction between deciding to train and actually training.
+13. **As a user**, I want to glance at the exercises in a planned workout before I start, so I know what I'm about to do and can mentally prepare (or swap the day) without having to already be in the middle of logging.
 
 ## 6. Core User Flows
 
@@ -70,9 +71,10 @@ The app is built around two primary flows, and both need to be fast and low-fric
 
 ### 6.2 Flow 2: Select, Start, and Log a Workout
 1. User opens the app and sees **Today's Workout** (or picks a different planned day, or starts an ad-hoc workout with no prior plan).
-2. User taps "Start Workout" — this marks the session in-progress and opens a focused logging view, pre-filled with the plan's blocks/exercises/target sets.
-3. As the user trains, they log each set with minimal input: target reps/weight/duration/distance are pre-filled as a starting point, and the user confirms or adjusts rather than entering everything from scratch.
-4. User taps "Finish Workout" when done, which prompts for the post-workout difficulty rating (Section 7.5) and marks the session complete.
+2. Tapping into that workout first shows a **review screen**: a quick, high-level glance at the blocks and exercises planned (names, rounds, target sets) — no logging yet, just a scan-and-confirm before training.
+3. From the review screen, user taps "Start Workout" — this marks the session in-progress and opens the focused logging view, pre-filled with the plan's blocks/exercises/target sets.
+4. As the user trains, they log each set with minimal input: target reps/weight/duration/distance are pre-filled as a starting point, and the user confirms or adjusts rather than entering everything from scratch.
+5. User taps "Finish Workout" when done, which prompts for the post-workout difficulty rating (Section 7.5) and marks the session complete.
 
 The specific convenience bar for these flows is covered in Non-Functional Requirements (Section 8).
 
@@ -98,9 +100,10 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 - A simple week view lists planned workouts across the current generation range, so the user can see and pick any day, not just today — e.g. catching up on a missed session, or getting ahead.
 - The user can start an ad-hoc workout with no prior plan (skips straight to 7.4 with an empty session), for days with no generated plan.
 - Days with no planned or logged workout are visually distinguished from planned/completed days.
+- Selecting a planned day opens a **workout review screen** before logging starts: a compact, high-level summary of the session's blocks and exercises (exercise names, round counts, target sets/reps/weight or duration/distance) so the user can glance at the whole session at once. "Start Workout" is the primary action on this screen; the user can also edit the plan or go back and pick a different day from here instead of committing.
 
 ### 7.4 Starting & Logging a Workout
-- User taps "Start Workout" on a planned (or ad-hoc) session, which marks it **in progress** and opens a focused logging view.
+- User taps "Start Workout" from the review screen (7.3) on a planned (or ad-hoc) session, which marks it **in progress** and opens a focused logging view.
 - Optional free-text notes for warm-up, cardio finisher, and cool-down (e.g. "5 min treadmill warm-up, 8 min incline finisher") — not structured/loggable exercises in v1.
 - A session is made up of one or more **blocks**, each block containing one or more exercises and a round count (e.g. "Block 1: 3 rounds of RDL, Incline Press, Farmer Carry"). A block with a single exercise and 1 round is just a normal exercise — the block structure covers both simple and circuit-style workouts without a separate data path.
 - Each exercise within a block records its own sets, one set per round (or more, if the user does extra sets within a round). When starting from a plan, sets are pre-filled with the suggested/target values, so the user only needs to confirm or adjust — not re-enter from scratch.
