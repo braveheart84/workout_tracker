@@ -24,12 +24,13 @@ This app replaces that workflow with a single tool that knows the user's recent 
 - Let the user see trends and charts of their progress over time (e.g. load progression per exercise, run pace/distance over time, training volume/frequency).
 - Let the user rate how a completed workout felt (too easy ↔ too hard), and feed that signal into future AI-generated suggestions so intensity self-adjusts over time.
 - Let the user quickly check how to perform an unfamiliar exercise (a link and, where available, a YouTube video) without leaving the app. *(Nice-to-have.)*
+- Let the user install the app to their phone's home screen and open it like a native app (as a Progressive Web App), without needing an app store.
 - Support multiple user accounts on a shared, hosted backend (not just a single local user).
 - Make the two core actions — generating workout(s) and logging one while training — fast and convenient enough to use comfortably standing in a gym, in a handful of taps.
 
 ## 3. Non-Goals (v1)
 
-- No native mobile app — web app only (responsive web is in scope; iOS/Android apps are not).
+- No native mobile app distributed via app stores — the app is a web app, shipped as an installable Progressive Web App (PWA) rather than a separate iOS/Android codebase (see Section 8).
 - No live GPS run tracking — runs are captured after the fact via Strava screenshot, not tracked live in-app.
 - No wearable/heart-rate device integration.
 - No social features (following other users, sharing workouts, leaderboards).
@@ -58,6 +59,7 @@ Secondary users: friends/family who could sign up and use the same hosted app fo
 12. **As a user**, I want to open the app, see today's planned workout, and tap one button to start logging, so there's no setup friction between deciding to train and actually training.
 13. **As a user**, I want to glance at the exercises in a planned workout before I start, so I know what I'm about to do and can mentally prepare (or swap the day) without having to already be in the middle of logging.
 14. **As a user**, I want to tap an unfamiliar exercise the AI suggested and see a quick explanation or video of how to do it, so I don't have to leave the app and search elsewhere mid-workout.
+15. **As a user**, I want to install the app on my phone's home screen, so it opens instantly like a native app instead of me having to navigate to a URL in a browser every gym session.
 
 ## 6. Core User Flows
 
@@ -156,6 +158,7 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 - **AI cost/latency awareness:** LLM calls (workout generation, image parsing) should have reasonable response times and the app should handle API failures gracefully (e.g. show an error and let the user retry or enter data manually rather than blocking them).
 - **Responsive design:** usable on both desktop and mobile browsers, since workout logging often happens mid-gym on a phone.
 - **Low-friction core loop:** logging a single set — the most frequent in-workout action — should take no more than a couple of taps/inputs, aided by pre-filled target values from the plan. Starting a workout from the "Today" view should be a single tap. The app should be comfortably usable one-handed on a phone mid-workout.
+- **Installable (PWA):** the app ships a web app manifest and service worker so mobile/desktop browsers can install it to the home screen/app list and it launches full-screen like a native app (no browser chrome). Core static assets (app shell, icons) are cached so the app opens quickly even on a flaky gym Wi-Fi connection; live data (workout history, AI generation, screenshot upload) still requires a network connection — full offline logging is not required for v1 (see Section 11).
 
 ## 9. Data Model (Initial Sketch)
 
@@ -174,7 +177,7 @@ This is a starting point for engineering design, not final schema.
 
 Given a hosted, multi-user web app with LLM text + vision calls:
 
-- **Frontend:** a modern web framework (e.g. React/Next.js) for a responsive SPA.
+- **Frontend:** a modern web framework (e.g. React/Next.js) for a responsive SPA, built/configured as an installable PWA (web app manifest, service worker, app icons — e.g. via `next-pwa` or an equivalent for the chosen framework).
 - **Backend:** a lightweight API server (e.g. Next.js API routes, or a separate Node/Python service) handling auth, CRUD, and orchestrating LLM calls.
 - **Database:** hosted relational DB (e.g. Postgres, via a managed provider) for user, workout, and exercise data.
 - **AI:** an LLM with both text and vision capability for (a) workout generation from history + free-text feeling, and (b) extracting run stats from uploaded screenshots.
@@ -187,7 +190,8 @@ Final stack choice is an engineering decision to be made at implementation time;
 
 - Should the app eventually integrate directly with the Strava API (OAuth) instead of screenshot upload, to reduce manual steps? (Explicitly out of scope for v1 per Section 3.)
 - Should AI-generated workouts learn from what the user actually completed vs. what was suggested, over time (adaptive suggestions)? Partially addressed by the difficulty-rating feedback loop (7.2, 7.5) — open question is how aggressively/automatically the LLM should act on it vs. just surfacing the trend for the user to consider.
-- Should there be reminders/notifications (e.g. "you haven't logged a workout in 3 days")?
+- Should there be reminders/notifications (e.g. "you haven't logged a workout in 3 days")? Installing as a PWA (Section 8) would make web push notifications possible on most platforms — worth revisiting once the PWA shell exists.
+- How far should offline support go beyond the app-shell caching in Section 8 — e.g. queuing a completed workout's logged sets to sync once back online, for gyms with poor connectivity?
 - Units: kg vs lb, and metric vs imperial for runs — confirm default and whether it's user-configurable.
 - Should workout templates/plans (multi-day programs) be supported as reusable templates, or is each week generated independently every time?
 - Should there be an in-app rest timer during a workout (counting down a block's rest_seconds), or is that left to the user's own device/watch?
