@@ -17,9 +17,10 @@ This app replaces that workflow with a single tool that knows the user's recent 
 ## 2. Goals
 
 - Let the user get an AI-generated workout suggestion, in-app, that accounts for recent training history and current feeling/energy level — no more manually copy-pasting context into ChatGPT.
-- Let the user log strength workouts: exercises, sets, reps, and load (weight).
+- Let the user log strength workouts: exercises grouped into blocks/circuits, with sets tracked as reps+weight, duration, or distance depending on the exercise.
 - Let the user log runs by uploading a Strava screenshot, with run stats (distance, pace, duration, etc.) auto-extracted via AI vision rather than typed in by hand.
 - Give the user a history/view of recent workouts so both they and the AI generator can see what's been trained recently.
+- Let the user see trends and charts of their progress over time (e.g. load progression per exercise, run pace/distance over time, training volume/frequency).
 - Support multiple user accounts on a shared, hosted backend (not just a single local user).
 
 ## 3. Non-Goals (v1)
@@ -45,6 +46,9 @@ Secondary users: friends/family who could sign up and use the same hosted app fo
 4. **As a user**, I want to upload a screenshot of my Strava run summary and have the app automatically pull out distance, time, and pace, so I don't have to manually retype run stats.
 5. **As a user**, I want to see a history of my recent workouts (strength + runs) in one timeline, so I can tell at a glance what muscle groups or training types I've recently covered.
 6. **As a user**, I want to create an account and log in, so my workout history is saved to my account and accessible across devices.
+7. **As a user**, I want to log workouts that are structured as blocks/circuits (e.g. "3 rounds of these 3 exercises") rather than one exercise at a time, so my log matches how I actually train.
+8. **As a user**, I want to log sets measured by time or distance (e.g. a 30-second plank, a 30m farmer carry), not just reps and weight, so all of my training — not only traditional rep-based lifting — is captured accurately.
+9. **As a user**, I want to see charts of my progress over time (e.g. weight/reps trending up on an exercise, run pace or distance over time), so I can tell whether I'm actually improving.
 
 ## 6. Functional Requirements
 
@@ -56,16 +60,24 @@ Secondary users: friends/family who could sign up and use the same hosted app fo
 ### 6.2 AI Workout Generation
 - User provides free-text input describing how they're feeling and/or what kind of session they want (e.g. "feeling tired, want something light" or "want to hit legs hard").
 - The app automatically includes relevant recent workout history (e.g. last 7–14 days: workout type, muscle groups trained, dates) as context to the LLM — the user should not have to manually restate what they did.
-- The LLM returns a structured workout suggestion: a list of exercises, each with suggested sets/reps (and target muscle group), and, for a run suggestion, a suggested type/duration/effort.
+- The LLM returns a structured workout suggestion: one or more blocks, each with its exercises, round count, and suggested sets/reps/weight/duration/distance as appropriate per exercise (and target muscle group), and, for a run suggestion, a suggested type/duration/effort.
 - The user can regenerate, edit, or accept the suggestion.
 - Accepting a suggestion pre-fills a new workout log entry, which the user then completes as they train (see 6.3).
 
 ### 6.3 Strength Workout Logging
-- Create a workout session (date, optional notes, optional label e.g. "Upper Body Strength").
-- Add exercises to a session, each with one or more sets.
-- Each set records: reps and load (weight + unit, kg/lb).
-- Edit or delete exercises/sets within a session after creation.
-- Exercises should be selectable from a reusable list (avoid re-typing "Bench Press" every time) — a personal exercise library that grows as the user logs new exercise names.
+- Create a workout session (date, optional notes, optional label e.g. "Full Body Strength A").
+- Optional free-text notes for warm-up, cardio finisher, and cool-down (e.g. "5 min treadmill warm-up, 8 min incline finisher") — not structured/loggable exercises in v1.
+- A session is made up of one or more **blocks**, each block containing one or more exercises and a round count (e.g. "Block 1: 3 rounds of RDL, Incline Press, Farmer Carry"). A block with a single exercise and 1 round is just a normal exercise — the block structure covers both simple and circuit-style workouts without a separate data path.
+- Each exercise within a block records its own sets, one set per round (or more, if the user does extra sets within a round).
+- A set records one of the following, depending on the exercise type:
+  - **Reps-based:** reps + load (weight + unit, kg/lb) — e.g. Leg Press, Bench Press.
+  - **Duration-based:** time (seconds) + optional load — e.g. Plank, Battle Ropes.
+  - **Distance-based:** distance (meters) + optional load — e.g. Farmer Carry.
+- Optional rest period (seconds) per block.
+- Optional per-exercise note captured for next time (e.g. "increase to 25kg next session").
+- Optional session-level energy rating (1–10) and a freeform "goal for next workout" note.
+- Edit or delete blocks/exercises/sets within a session after creation.
+- Exercises should be selectable from a reusable list (avoid re-typing "Bench Press" every time) — a personal exercise library that grows as the user logs new exercise names, and each library entry remembers its default set type (reps, duration, or distance).
 
 ### 6.4 Run Logging via Screenshot
 - User uploads a screenshot (e.g. from Strava).
@@ -79,6 +91,12 @@ Secondary users: friends/family who could sign up and use the same hosted app fo
 - Each entry shows enough summary detail to be useful as AI-generation context and for the user to browse (date, type, key stats).
 - Ability to view full detail of any past session.
 
+### 6.6 Progress Trends & Charts
+- Per-exercise progress chart: load and/or reps over time (e.g. top set weight for Bench Press across sessions), scoped appropriately by set type (reps-based exercises chart weight/reps, duration-based chart time, distance-based chart distance).
+- Run progress charts: pace, distance, and duration over time.
+- Training volume/frequency view: workouts per week, sessions by type, over a selectable time range (e.g. last 4/12 weeks).
+- Charts are viewable from both the workout history view and from an exercise's entry in the exercise library (to see that exercise's history specifically).
+
 ## 7. Non-Functional Requirements
 
 - **Data persistence:** hosted database; user data must survive across sessions/devices, not just be stored in the browser.
@@ -89,10 +107,11 @@ Secondary users: friends/family who could sign up and use the same hosted app fo
 ## 8. Data Model (Initial Sketch)
 
 - **User**: id, email, password hash, created_at
-- **Exercise** (per-user library): id, user_id, name, default muscle group (optional)
-- **WorkoutSession**: id, user_id, date, type (strength / run), label/notes, source (manual / ai_generated), created_at
-- **WorkoutExercise**: id, session_id, exercise_id, order
-- **Set**: id, workout_exercise_id, reps, weight, weight_unit
+- **Exercise** (per-user library): id, user_id, name, default muscle group (optional), default set type (reps / duration / distance)
+- **WorkoutSession**: id, user_id, date, type (strength / run), label, warmup_notes, finisher_notes, cooldown_notes, energy_rating (1–10, optional), goal_for_next (optional), source (manual / ai_generated), created_at
+- **WorkoutBlock**: id, session_id, order, round_count, rest_seconds (optional) — a block groups one or more exercises done together for N rounds; a single-exercise, 1-round block is just a normal exercise
+- **WorkoutExercise**: id, block_id, exercise_id, order, note_for_next_time (optional)
+- **Set**: id, workout_exercise_id, round_number, set_type (reps / duration / distance), reps (nullable), weight (nullable), weight_unit (nullable), duration_seconds (nullable), distance_meters (nullable)
 - **Run**: id, session_id, distance, duration, pace, screenshot_url, raw_extracted_data (json)
 
 This is a starting point for engineering design, not final schema.
@@ -106,6 +125,7 @@ Given a hosted, multi-user web app with LLM text + vision calls:
 - **Database:** hosted relational DB (e.g. Postgres, via a managed provider) for user, workout, and exercise data.
 - **AI:** an LLM with both text and vision capability for (a) workout generation from history + free-text feeling, and (b) extracting run stats from uploaded screenshots.
 - **File storage:** object storage (e.g. S3-compatible) for uploaded screenshots.
+- **Charting:** a frontend charting library (e.g. Recharts, Chart.js) for progress trends (Section 6.6).
 
 Final stack choice is an engineering decision to be made at implementation time; this section is a directional recommendation, not a hard requirement.
 
