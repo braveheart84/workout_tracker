@@ -25,6 +25,7 @@ This app replaces that workflow with a single tool that knows the user's recent 
 - Let the user rate how a completed workout felt (too easy ↔ too hard), and feed that signal into future AI-generated suggestions so intensity self-adjusts over time.
 - Let the user quickly check how to perform an unfamiliar exercise (a link and, where available, a YouTube video) without leaving the app. *(Nice-to-have.)*
 - Let the user install the app to their phone's home screen and open it like a native app (as a Progressive Web App), without needing an app store.
+- Run a built-in timer during a workout that alerts the user when a timed exercise or rest period is over, so circuit/interval-style training doesn't require a separate stopwatch.
 - Support multiple user accounts on a shared, hosted backend (not just a single local user).
 - Make the two core actions — generating workout(s) and logging one while training — fast and convenient enough to use comfortably standing in a gym, in a handful of taps.
 
@@ -60,6 +61,7 @@ Secondary users: friends/family who could sign up and use the same hosted app fo
 13. **As a user**, I want to glance at the exercises in a planned workout before I start, so I know what I'm about to do and can mentally prepare (or swap the day) without having to already be in the middle of logging.
 14. **As a user**, I want to tap an unfamiliar exercise the AI suggested and see a quick explanation or video of how to do it, so I don't have to leave the app and search elsewhere mid-workout.
 15. **As a user**, I want to install the app on my phone's home screen, so it opens instantly like a native app instead of me having to navigate to a URL in a browser every gym session.
+16. **As a user**, I want the app to time my rounds and rest periods during a circuit workout (e.g. 2 min Row / 2 min Cycle / 2 min Burpees × 3 rounds, 60s rest between rounds) and alert me when it's time to switch or rest, so I can focus on training instead of watching a stopwatch.
 
 ## 6. Core User Flows
 
@@ -69,7 +71,7 @@ The app is built around two primary flows, and both need to be fast and low-fric
 1. User taps "Generate Workout."
 2. App asks how many days to generate for: **today only**, or a range (the app asks how many days, e.g. 1–7, to cover "the whole week").
 3. User optionally adds free-text context (how they're feeling, goals for the period).
-4. App calls the LLM with recent history and the difficulty-rating trend (Section 7.5) to generate one workout suggestion per requested day, with sensible spacing/variety (e.g. avoiding the same muscle group on consecutive days).
+4. App calls the LLM with recent history and the difficulty-rating trend (Section 7.6) to generate one workout suggestion per requested day, with sensible spacing/variety (e.g. avoiding the same muscle group on consecutive days).
 5. User reviews the suggestion(s) — for a multi-day generation, as a simple day-by-day list — and can regenerate, edit, or accept each one individually.
 6. Accepted suggestions are saved as **planned** workouts, each tied to a date, ready to be started (Flow 2).
 
@@ -77,8 +79,8 @@ The app is built around two primary flows, and both need to be fast and low-fric
 1. User opens the app and sees **Today's Workout** (or picks a different planned day, or starts an ad-hoc workout with no prior plan).
 2. Tapping into that workout first shows a **review screen**: a quick, high-level glance at the blocks and exercises planned (names, rounds, target sets) — no logging yet, just a scan-and-confirm before training.
 3. From the review screen, user taps "Start Workout" — this marks the session in-progress and opens the focused logging view, pre-filled with the plan's blocks/exercises/target sets.
-4. As the user trains, they log each set with minimal input: target reps/weight/duration/distance are pre-filled as a starting point, and the user confirms or adjusts rather than entering everything from scratch.
-5. User taps "Finish Workout" when done, which prompts for the post-workout difficulty rating (Section 7.5) and marks the session complete.
+4. As the user trains, they log each set with minimal input: target reps/weight/duration/distance are pre-filled as a starting point, and the user confirms or adjusts rather than entering everything from scratch. For timed exercises and rest periods, a built-in timer (Section 7.5) counts down and alerts the user automatically.
+5. User taps "Finish Workout" when done, which prompts for the post-workout difficulty rating (Section 7.6) and marks the session complete.
 
 The specific convenience bar for these flows is covered in Non-Functional Requirements (Section 8).
 
@@ -93,7 +95,7 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 - User taps "Generate Workout" and chooses a scope: **today only**, or a **range of days** — if a range, the app asks how many days (1–7) to generate for.
 - User provides free-text input describing how they're feeling and/or what kind of session(s) they want (e.g. "feeling tired, want something light" or "want to hit legs hard this week").
 - The app automatically includes relevant recent workout history (e.g. last 7–14 days: workout type, muscle groups trained, dates) as context to the LLM — the user should not have to manually restate what they did.
-- Recent post-workout difficulty ratings (see 7.5) are included as context too, so the LLM can adjust intensity: e.g. consistently "too easy" ratings on an exercise or run pace should nudge the next suggestion's load/pace/volume up, and "too hard" ratings should ease it back.
+- Recent post-workout difficulty ratings (see 7.6) are included as context too, so the LLM can adjust intensity: e.g. consistently "too easy" ratings on an exercise or run pace should nudge the next suggestion's load/pace/volume up, and "too hard" ratings should ease it back.
 - For a multi-day request, the LLM returns one suggestion per day, each assigned to a date, with sensible spacing/variety across the set (e.g. avoiding the same muscle group on consecutive days, alternating strength/run days where the user's history suggests both).
 - Each suggestion is a structured workout: one or more blocks, each with its exercises, round count, and suggested sets/reps/weight/duration/distance as appropriate per exercise (and target muscle group), and, for a run suggestion, a suggested type/duration/effort.
 - The user can regenerate, edit, or accept each suggestion — individually, even within a multi-day batch.
@@ -111,7 +113,7 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 ### 7.4 Starting & Logging a Workout
 - User taps "Start Workout" from the review screen (7.3) on a planned (or ad-hoc) session, which marks it **in progress** and opens a focused logging view.
 - Optional free-text notes for warm-up, cardio finisher, and cool-down (e.g. "5 min treadmill warm-up, 8 min incline finisher") — not structured/loggable exercises in v1.
-- A session is made up of one or more **blocks**, each block containing one or more exercises and a round count (e.g. "Block 1: 3 rounds of RDL, Incline Press, Farmer Carry"). A block with a single exercise and 1 round is just a normal exercise — the block structure covers both simple and circuit-style workouts without a separate data path.
+- A session is made up of one or more **blocks**, each block containing one or more exercises and a round count (e.g. "Block 1: 3 rounds of RDL, Incline Press, Farmer Carry"). A block with a single exercise and 1 round is just a normal exercise — the block structure covers both simple and circuit-style workouts without a separate data path. This also covers all-duration circuits, e.g. a block of "2 min Row, 2 min Cycle, 2 min Burpees," round_count 3, rest_seconds 60 — every exercise in the block is a duration-based set (see below), not just one exercise for the whole round.
 - Each exercise within a block records its own sets, one set per round (or more, if the user does extra sets within a round). When starting from a plan, sets are pre-filled with the suggested/target values, so the user only needs to confirm or adjust — not re-enter from scratch.
 - A set records one of the following, depending on the exercise type:
   - **Reps-based:** reps + load (weight + unit, kg/lb) — e.g. Leg Press, Bench Press.
@@ -122,29 +124,35 @@ The specific convenience bar for these flows is covered in Non-Functional Requir
 - Edit or delete blocks/exercises/sets within a session, including mid-workout.
 - Exercises should be selectable from a reusable list (avoid re-typing "Bench Press" every time) — a personal exercise library that grows as the user logs new exercise names, and each library entry remembers its default set type (reps, duration, or distance).
 - **Exercise how-to (nice-to-have):** each exercise library entry can carry an optional instructional link (article/guide) and an optional YouTube video link. Where an exercise has either, an info icon appears next to it in the review screen (7.3) and the logging view, opening the link(s) without leaving the workout. The user can add or edit these links manually at any time; if the AI-generation flow (7.2) can supply a link automatically when introducing a new exercise, it does so as a default the user can override. If no link is available for an exercise, the app falls back to a generated YouTube search link for the exercise name rather than showing nothing.
-- User taps "Finish Workout" when done, which marks the session **completed** and triggers Post-Workout Feedback (7.5).
+- User taps "Finish Workout" when done, which marks the session **completed** and triggers Post-Workout Feedback (7.6).
 
-### 7.5 Post-Workout Feedback
-- When the user finishes a session — via "Finish Workout" (7.4) or after saving a run (7.6) — the app prompts for a difficulty rating: a 1–5 scale from "Too Easy" to "Too Hard" (3 = "About Right").
+### 7.5 In-Workout Timer
+- Every duration-based set (7.4) can drive a countdown timer: when the user starts a timed exercise (e.g. "2 min Row"), the app shows a countdown for its target duration and alerts the user — visually and via sound/vibration — when time is up.
+- When a block has a rest period (`rest_seconds`), the app automatically starts a rest countdown as soon as a round finishes, alerting the user when rest is over so they know to begin the next round. This covers full timed circuits like "Round: 2 min Row, 2 min Cycle, 2 min Burpees, × 3 rounds, 60s rest between rounds," where every exercise and the rest between rounds is timed.
+- The timer runs automatically as part of the logging flow (7.4) — no separate stopwatch app needed — but the user can pause, skip ahead, or mark a timed set/rest done early.
+- Alerts should work reliably while the phone screen is on and the app is in the foreground; behavior when the screen is locked or the app is backgrounded depends on what the installed PWA (Section 8) can support on a given platform (see Section 11).
+
+### 7.6 Post-Workout Feedback
+- When the user finishes a session — via "Finish Workout" (7.4) or after saving a run (7.7) — the app prompts for a difficulty rating: a 1–5 scale from "Too Easy" to "Too Hard" (3 = "About Right").
 - Optional freeform note alongside the rating (e.g. "shoulders were the limiter, not legs").
 - Optional session-level energy rating (1–10) and a freeform "goal for next workout" note.
 - The rating is optional (skippable) but the app should always ask at the point a session is marked complete, so the signal is captured while it's fresh.
 - This feedback feeds into AI Workout Generation as described in 7.2.
 
-### 7.6 Run Logging via Screenshot
+### 7.7 Run Logging via Screenshot
 - User uploads a screenshot (e.g. from Strava).
 - The app uses AI vision to extract run data from the image: distance, duration, pace, and date (whatever is visible/legible).
 - Extracted data is shown to the user as an editable form before saving, so they can correct any misread values.
 - The original screenshot is stored alongside the extracted data as a visual record.
-- Saved runs appear in the same workout history/timeline as strength sessions, and go through the same post-workout feedback prompt (7.5).
+- Saved runs appear in the same workout history/timeline as strength sessions, and go through the same post-workout feedback prompt (7.6).
 - A run can also fulfill a planned/generated "run" suggestion from 7.2 — the plan sets an expected date/type, and logging happens by uploading the screenshot once the run is done.
 
-### 7.7 Workout History
+### 7.8 Workout History
 - Chronological list/timeline of past sessions (strength + runs).
 - Each entry shows enough summary detail to be useful as AI-generation context and for the user to browse (date, type, key stats, difficulty rating).
 - Ability to view full detail of any past session.
 
-### 7.8 Progress Trends & Charts
+### 7.9 Progress Trends & Charts
 - Per-exercise progress chart: load and/or reps over time (e.g. top set weight for Bench Press across sessions), scoped appropriately by set type (reps-based exercises chart weight/reps, duration-based chart time, distance-based chart distance).
 - Run progress charts: pace, distance, and duration over time.
 - Training volume/frequency view: workouts per week, sessions by type, over a selectable time range (e.g. last 4/12 weeks).
@@ -182,19 +190,19 @@ Given a hosted, multi-user web app with LLM text + vision calls:
 - **Database:** hosted relational DB (e.g. Postgres, via a managed provider) for user, workout, and exercise data.
 - **AI:** an LLM with both text and vision capability for (a) workout generation from history + free-text feeling, and (b) extracting run stats from uploaded screenshots.
 - **File storage:** object storage (e.g. S3-compatible) for uploaded screenshots.
-- **Charting:** a frontend charting library (e.g. Recharts, Chart.js) for progress trends (Section 7.8).
+- **Charting:** a frontend charting library (e.g. Recharts, Chart.js) for progress trends (Section 7.9).
 
 Final stack choice is an engineering decision to be made at implementation time; this section is a directional recommendation, not a hard requirement.
 
 ## 11. Open Questions / Future Considerations
 
 - Should the app eventually integrate directly with the Strava API (OAuth) instead of screenshot upload, to reduce manual steps? (Explicitly out of scope for v1 per Section 3.)
-- Should AI-generated workouts learn from what the user actually completed vs. what was suggested, over time (adaptive suggestions)? Partially addressed by the difficulty-rating feedback loop (7.2, 7.5) — open question is how aggressively/automatically the LLM should act on it vs. just surfacing the trend for the user to consider.
+- Should AI-generated workouts learn from what the user actually completed vs. what was suggested, over time (adaptive suggestions)? Partially addressed by the difficulty-rating feedback loop (7.2, 7.6) — open question is how aggressively/automatically the LLM should act on it vs. just surfacing the trend for the user to consider.
 - Should there be reminders/notifications (e.g. "you haven't logged a workout in 3 days")? Installing as a PWA (Section 8) would make web push notifications possible on most platforms — worth revisiting once the PWA shell exists.
 - How far should offline support go beyond the app-shell caching in Section 8 — e.g. queuing a completed workout's logged sets to sync once back online, for gyms with poor connectivity?
 - Units: kg vs lb, and metric vs imperial for runs — confirm default and whether it's user-configurable.
 - Should workout templates/plans (multi-day programs) be supported as reusable templates, or is each week generated independently every time?
-- Should there be an in-app rest timer during a workout (counting down a block's rest_seconds), or is that left to the user's own device/watch?
+- In-workout timer (7.5): how reliably can a PWA fire timer alerts (sound/vibration/visual) when the screen is locked or the app is backgrounded, across iOS and Android? This may constrain the feature to foreground-only for v1 until validated, with the user's own device/watch as the fallback for backgrounded alerts.
 - If a planned day is skipped entirely (never started), should it just sit there indefinitely, or should the next generation request offer to reschedule/discard unstarted planned days?
 - Exercise how-to links (7.4): is automatic link/video sourcing feasible at implementation time (e.g. via LLM knowledge, a search API, or a curated lookup table for common exercises), or should v1 ship with manual-entry only and treat auto-suggestion as a fast-follow?
 

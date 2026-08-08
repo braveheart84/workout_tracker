@@ -27,9 +27,10 @@ A single TypeScript codebase (Next.js) covers frontend and backend, which keeps 
 
 - **Framework:** Next.js (App Router), React, TypeScript.
 - **Styling/components:** Tailwind CSS + shadcn/ui for a consistent, accessible component set without building a design system from scratch.
-- **Charts:** Recharts, for the progress trend charts in PRD 7.8 (load/rep progression, run pace/distance, volume, difficulty trend).
+- **Charts:** Recharts, for the progress trend charts in PRD 7.9 (load/rep progression, run pace/distance, volume, difficulty trend).
 - **PWA:** `@ducanh2912/next-pwa` (actively maintained Next.js PWA plugin) generates the service worker and wires up the web app manifest, satisfying PRD Section 8's installability requirement — app shell/icons cached, home-screen install, full-screen launch.
 - **State/data fetching:** React Query (TanStack Query) for server-state caching and optimistic updates — useful for the low-friction logging loop in PRD 7.4, where set entries should feel instant even while syncing to the backend.
+- **In-workout timer (PRD 7.5):** a client-side countdown implemented with the browser's `Notification` API (for the alert) and the Screen Wake Lock API (to stop the screen from sleeping mid-timer) while the app is in the foreground. Background/locked-screen reliability depends on service worker + push notification support per platform — see Open Questions.
 - **Forms:** React Hook Form + Zod for the various logging/edit forms (sets, run screenshot correction, exercise library entries), with Zod schemas shared with the backend for validation.
 
 ## 3. Backend
@@ -51,14 +52,14 @@ A single TypeScript codebase (Next.js) covers frontend and backend, which keeps 
 
 - **Provider:** Anthropic Claude API, for both capabilities the PRD requires from a single vendor:
   - **Text generation (PRD 7.2):** workout suggestions — single-day or multi-day — generated from recent history, free-text input, and the difficulty-rating trend. Structured output (JSON matching the block/exercise/set shape) via tool use / a JSON schema, validated with Zod before being shown to the user or saved.
-  - **Vision (PRD 7.6):** extracting distance/duration/pace/date from an uploaded Strava screenshot, returned as structured JSON and shown to the user as an editable form before saving.
+  - **Vision (PRD 7.7):** extracting distance/duration/pace/date from an uploaded Strava screenshot, returned as structured JSON and shown to the user as an editable form before saving.
 - **Model tier:** a mid-tier Claude model (e.g. Sonnet) for both text and vision calls — strong enough for structured reasoning over workout history and reading screenshot text, without the cost of the largest tier for what are fairly bounded tasks. Model choice is easy to revisit later since both call sites go through a single thin wrapper.
 - **Reliability:** per PRD Section 8's AI cost/latency requirement — API calls are wrapped with a timeout and a single retry; on failure, the user sees an error and can retry or fall back to manual entry (manual workout creation, manual run entry) rather than being blocked.
 - **Exercise how-to links (PRD 7.4, nice-to-have):** if the app auto-attaches a how-to reference when a new exercise appears in a generated suggestion, that also goes through Claude (asked for a known instructional source), with the generated-YouTube-search-link fallback in the PRD covering the case where none is available — no separate search API needed for v1.
 
 ## 6. File Storage
 
-- **Choice:** Supabase Storage, for uploaded Strava screenshots (PRD 7.6), which are stored alongside the extracted data as a visual record.
+- **Choice:** Supabase Storage, for uploaded Strava screenshots (PRD 7.7), which are stored alongside the extracted data as a visual record.
 - **Why:** bundled with the database choice (Section 4) — one vendor for both, rather than pairing Supabase's Postgres with a separate S3-compatible provider. Storage buckets are gated by a signed-upload flow from the Next.js backend, so screenshots go straight from the browser to storage rather than through the API server.
 
 ## 7. Auth
@@ -86,3 +87,4 @@ A single TypeScript codebase (Next.js) covers frontend and backend, which keeps 
 - Whether to set up a scheduled keep-alive ping against Supabase to avoid the free-tier pause-after-inactivity behavior (Section 4), or just live with occasional manual resumes until it's annoying enough to justify the paid tier.
 - Confirm Claude model tier (and fallback behavior) once real usage/cost data exists from early testing.
 - If push notifications are built later (PRD Section 11), confirm Vercel Cron + Web Push is sufficient, or whether a dedicated notification service is warranted.
+- In-workout timer alerts (PRD 7.5, PRD Section 11): validate `Notification` + Wake Lock API behavior on locked/backgrounded iOS and Android PWAs early — if unreliable, v1 may need to scope the timer to foreground-only and document the limitation rather than over-promise background alerts.
