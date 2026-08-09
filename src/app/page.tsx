@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
@@ -6,6 +8,14 @@ export default function Home() {
         AI-generated workouts and simple logging for strength training and runs.
         Under construction.
       </p>
+      <div className="flex gap-4 text-sm font-medium">
+        <Link href="/login" className="underline">
+          Log in
+        </Link>
+        <Link href="/signup" className="underline">
+          Sign up
+        </Link>
+      </div>
     </main>
   );
 }
