@@ -13,7 +13,10 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isProtectedRoute = nextUrl.pathname.startsWith("/dashboard");
+      const protectedPrefixes = ["/dashboard", "/settings"];
+      const isProtectedRoute = protectedPrefixes.some((prefix) =>
+        nextUrl.pathname.startsWith(prefix),
+      );
       return !isProtectedRoute || isLoggedIn;
     },
   },

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 
@@ -11,6 +12,9 @@ export default async function DashboardPage() {
     <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
       <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
       <p className="text-muted-foreground">Logged in as {session.user.email}</p>
+      <Link href="/settings" className="text-sm underline">
+        Account settings
+      </Link>
       <form
         action={async () => {
           "use server";
