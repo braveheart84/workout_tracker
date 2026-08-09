@@ -21,6 +21,23 @@ enum SetType {
   DISTANCE
 }
 
+enum WorkoutSessionStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  DISCARDED
+}
+
+enum WorkoutSessionType {
+  STRENGTH
+  RUN
+}
+
+enum WorkoutSessionSource {
+  MANUAL
+  AI_GENERATED
+}
+
 // PRD Section 9 (User)
 model User {
   id                String     @id @default(uuid())
@@ -30,7 +47,8 @@ model User {
   remindersEnabled  Boolean    @default(true) @map("reminders_enabled")
   createdAt         DateTime   @default(now()) @map("created_at")
 
-  exercises Exercise[]
+  exercises       Exercise[]
+  workoutSessions WorkoutSession[]
 
   @@map("users")
 }
@@ -48,4 +66,27 @@ model Exercise {
 
   @@unique([userId, name])
   @@map("exercises")
+}
+
+// PRD Section 9 (WorkoutSession) - fields introduced by later PRs (plan_id,
+// template_id, focus_tags, post-workout feedback fields) are added by the
+// PRs that actually use them, not sketched in ahead of need.
+model WorkoutSession {
+  id            String               @id @default(uuid())
+  userId        String               @map("user_id")
+  date          DateTime             @db.Date
+  status        WorkoutSessionStatus @default(IN_PROGRESS)
+  type          WorkoutSessionType   @default(STRENGTH)
+  label         String?
+  warmupNotes   String?              @map("warmup_notes")
+  finisherNotes String?              @map("finisher_notes")
+  cooldownNotes String?              @map("cooldown_notes")
+  source        WorkoutSessionSource @default(MANUAL)
+  createdAt     DateTime             @default(now()) @map("created_at")
+  startedAt     DateTime?            @map("started_at")
+  completedAt   DateTime?            @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("workout_sessions")
 }

@@ -73,6 +73,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** `WorkoutSession` table + migration (`status`: planned/in_progress/completed/discarded, `type`, `label`, notes fields); "Start ad-hoc workout" button that creates an empty in-progress session; session detail page (empty state); "Finish Workout" transition to `completed` with no feedback prompt yet.
 - **Deployable because:** produces empty-but-real sessions end-to-end; safe no-op if unused.
 - **PRD ref:** 7.4 (session creation, status transitions); Section 9 (`WorkoutSession`).
+- **Status:** ✅ Shipped — GitHub PR #10. Fields beyond what this PR needs (`plan_id`, `template_id`, `focus_tags`, post-workout feedback fields) are deliberately not on the model yet — added by the PRs that actually use them (PR-16, PR-20, PR-21, PR-09), matching the additive-columns pattern used elsewhere in this plan. Editing (label/notes) and finishing are both guarded server-side to only affect `IN_PROGRESS` sessions owned by the requesting user, regardless of what the UI shows.
 
 ### PR-07: Blocks & exercises within a session
 
