@@ -81,6 +81,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** `WorkoutBlock` and `WorkoutExercise` tables + migrations; UI to add/remove/reorder blocks (round count, optional rest seconds) and add exercises from the library into a block, mid-session.
 - **Deployable because:** an in-progress session can now hold structure even before sets are loggable.
 - **PRD ref:** 7.4 (block structure, incl. all-duration circuits); Section 9 (`WorkoutBlock`, `WorkoutExercise`).
+- **Status:** 🚧 In review — GitHub PR #11. `WorkoutExercise.exercise` uses `onDelete: Restrict` (an exercise in use by a workout can't be deleted), now that exercises are actually referenced elsewhere for the first time — surfaced in the exercise library UI as a clear error rather than an unhandled failure. Also ships the `ExercisePicker` typeahead deferred from PR-05, against its first real consumer.
 
 ### PR-08: Set logging (reps, duration, distance)
 
