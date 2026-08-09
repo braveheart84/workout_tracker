@@ -97,6 +97,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** "Finish Workout" now prompts for the 1–5 difficulty rating, optional note, energy rating, and goal-for-next-workout note; persisted on the session.
 - **Deployable because:** small, additive step at the end of an existing flow.
 - **PRD ref:** 7.6; Section 9 (`WorkoutSession` feedback fields).
+- **Status:** 🚧 In review — GitHub PR #13. Caught by the E2E run: unchecked HTML radio groups omit their field from `FormData` entirely (unlike text/number inputs, which submit `""`), so the initial validation treated "no difficulty selected" as invalid rather than "skipped" and silently failed to finish the workout — fixed by preprocessing missing/empty values to `null` before validation.
 
 ### PR-10: Workout History
 
