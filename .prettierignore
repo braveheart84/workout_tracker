@@ -1,3 +1,8 @@
 .next
 node_modules
 package-lock.json
+
+# Vendored Prisma agent-skill reference docs (installed by `prisma init`)
+.agents/skills
+.claude/skills
+skills-lock.json
