@@ -9,19 +9,19 @@ This document details the technology stack chosen to build the Workout Tracker d
 
 ## 1. Overview
 
-| Layer | Choice |
-|---|---|
-| Frontend | Next.js (App Router) + React + TypeScript, Tailwind CSS, shadcn/ui |
-| Backend | Next.js Route Handlers (same codebase as frontend) |
-| Database | PostgreSQL, hosted on Supabase, via Prisma ORM |
-| Auth | Auth.js (NextAuth) with credentials provider |
-| File storage | Supabase Storage |
-| LLM (text + vision) | Anthropic Claude API |
-| Charting | Recharts |
-| PWA | `@ducanh2912/next-pwa` (manifest + service worker) |
-| Offline queue | IndexedDB (client-side), synced on reconnect |
-| Push notifications | Web Push (`web-push` npm package) + Vercel Cron |
-| Hosting | Vercel |
+| Layer               | Choice                                                             |
+| ------------------- | ------------------------------------------------------------------ |
+| Frontend            | Next.js (App Router) + React + TypeScript, Tailwind CSS, shadcn/ui |
+| Backend             | Next.js Route Handlers (same codebase as frontend)                 |
+| Database            | PostgreSQL, hosted on Supabase, via Prisma ORM                     |
+| Auth                | Auth.js (NextAuth) with credentials provider                       |
+| File storage        | Supabase Storage                                                   |
+| LLM (text + vision) | Anthropic Claude API                                               |
+| Charting            | Recharts                                                           |
+| PWA                 | `@ducanh2912/next-pwa` (manifest + service worker)                 |
+| Offline queue       | IndexedDB (client-side), synced on reconnect                       |
+| Push notifications  | Web Push (`web-push` npm package) + Vercel Cron                    |
+| Hosting             | Vercel                                                             |
 
 A single TypeScript codebase (Next.js) covers frontend and backend, which keeps a solo/small-team build simple: one deploy target, one language, shared types between client and server.
 
@@ -78,13 +78,13 @@ A single TypeScript codebase (Next.js) covers frontend and backend, which keeps 
 
 ## 9. Alternatives Considered
 
-| Decision | Chosen | Alternative(s) considered | Why not (for now) |
-|---|---|---|---|
-| Backend architecture | Next.js Route Handlers (monolith) | Separate Node/Python service | Extra deploy target and network hop not justified at this scale; PRD's own Section 10 already flagged this as an option, but a single codebase is simpler for v1 |
-| Database + storage host | Supabase | Neon (DB only, auto-suspend/resume, no pausing) + Cloudflare R2 (storage) | Supabase's bundling of DB + Storage in one vendor/dashboard outweighs Neon's smoother idle behavior for a solo-maintained project; the free-tier pause is a manageable tradeoff (see Section 4) |
-| LLM provider | Anthropic Claude | OpenAI (GPT + vision) | Comparable capability for this use case; Claude chosen to keep a single-vendor integration — revisit if cost/quality differs materially in practice |
-| Auth | Auth.js | Supabase Auth, Clerk | Kept independent of the DB/storage vendor decision — Auth.js stays in the same codebase and isn't tied to switching database providers later; can migrate to a managed provider without changing the data model |
-| Offline queuing mechanism | IndexedDB + manual retry on reconnect | Background Sync API (`ServiceWorkerRegistration.sync`) | Background Sync would queue writes even if the tab is closed, but iOS Safari doesn't support it — a manual "flush the local queue when `online` fires" approach is less elegant but works consistently across the platforms the PWA targets |
+| Decision                  | Chosen                                | Alternative(s) considered                                                 | Why not (for now)                                                                                                                                                                                                                           |
+| ------------------------- | ------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend architecture      | Next.js Route Handlers (monolith)     | Separate Node/Python service                                              | Extra deploy target and network hop not justified at this scale; PRD's own Section 10 already flagged this as an option, but a single codebase is simpler for v1                                                                            |
+| Database + storage host   | Supabase                              | Neon (DB only, auto-suspend/resume, no pausing) + Cloudflare R2 (storage) | Supabase's bundling of DB + Storage in one vendor/dashboard outweighs Neon's smoother idle behavior for a solo-maintained project; the free-tier pause is a manageable tradeoff (see Section 4)                                             |
+| LLM provider              | Anthropic Claude                      | OpenAI (GPT + vision)                                                     | Comparable capability for this use case; Claude chosen to keep a single-vendor integration — revisit if cost/quality differs materially in practice                                                                                         |
+| Auth                      | Auth.js                               | Supabase Auth, Clerk                                                      | Kept independent of the DB/storage vendor decision — Auth.js stays in the same codebase and isn't tied to switching database providers later; can migrate to a managed provider without changing the data model                             |
+| Offline queuing mechanism | IndexedDB + manual retry on reconnect | Background Sync API (`ServiceWorkerRegistration.sync`)                    | Background Sync would queue writes even if the tab is closed, but iOS Safari doesn't support it — a manual "flush the local queue when `online` fires" approach is less elegant but works consistently across the platforms the PWA targets |
 
 ## 10. Open Questions
 
