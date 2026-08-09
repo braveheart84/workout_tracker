@@ -25,6 +25,13 @@ function isUniqueConstraintError(error: unknown) {
   );
 }
 
+function isForeignKeyConstraintError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2003"
+  );
+}
+
 function parseExerciseForm(formData: FormData) {
   return exerciseSchema.safeParse({
     name: formData.get("name"),
@@ -96,13 +103,30 @@ export async function updateExerciseAction(
   return { success: true };
 }
 
-export async function deleteExerciseAction(id: string) {
+export async function deleteExerciseAction(
+  id: string,
+): Promise<ExerciseFormState> {
   const session = await auth();
-  if (!session?.user) return;
+  if (!session?.user) {
+    return { error: "You must be logged in." };
+  }
 
-  await prisma.exercise.deleteMany({
-    where: { id, userId: session.user.id },
-  });
+  try {
+    const result = await prisma.exercise.deleteMany({
+      where: { id, userId: session.user.id },
+    });
+    if (result.count === 0) {
+      return { error: "Exercise not found." };
+    }
+  } catch (error) {
+    if (isForeignKeyConstraintError(error)) {
+      return {
+        error: "This exercise is used in a workout and can't be deleted.",
+      };
+    }
+    throw error;
+  }
 
   revalidatePath("/exercises");
+  return { success: true };
 }

@@ -62,7 +62,8 @@ model Exercise {
   defaultSetType SetType  @default(REPS) @map("default_set_type")
   createdAt      DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutExercises WorkoutExercise[]
 
   @@unique([userId, name])
   @@map("exercises")
@@ -86,7 +87,37 @@ model WorkoutSession {
   startedAt     DateTime?            @map("started_at")
   completedAt   DateTime?            @map("completed_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blocks WorkoutBlock[]
 
   @@map("workout_sessions")
+}
+
+// PRD Section 9 (WorkoutBlock) - groups one or more exercises done together
+// for N rounds; a single-exercise, 1-round block is just a normal exercise.
+model WorkoutBlock {
+  id          String @id @default(uuid())
+  sessionId   String @map("session_id")
+  order       Int
+  roundCount  Int    @default(1) @map("round_count")
+  restSeconds Int?   @map("rest_seconds")
+
+  session          WorkoutSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  workoutExercises WorkoutExercise[]
+
+  @@map("workout_blocks")
+}
+
+// PRD Section 9 (WorkoutExercise)
+model WorkoutExercise {
+  id              String  @id @default(uuid())
+  blockId         String  @map("block_id")
+  exerciseId      String  @map("exercise_id")
+  order           Int
+  noteForNextTime String? @map("note_for_next_time")
+
+  block    WorkoutBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  exercise Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@map("workout_exercises")
 }
