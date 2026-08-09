@@ -117,6 +117,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** countdown timer for duration-based sets; automatic rest countdown tied to a block's `rest_seconds`; pause/skip controls; `Notification` + Wake Lock API integration, foreground-only.
 - **Deployable because:** purely additive UI on the existing logging screen; no data model change.
 - **PRD ref:** 7.5.
+- **Status:** 🚧 In review — GitHub PR #15. "A round just finished" isn't an explicit event in the data model, so the rest countdown's auto-start is a client-side heuristic over the sets already in props (every exercise in the block has a set for the current, contiguous-from-1 round number) rather than a new schema concept. Alerts (sound/vibration/Notification) and Wake Lock are all feature-detected and best-effort per the v1 foreground-only scope.
 
 ### PR-12: Today view
 
