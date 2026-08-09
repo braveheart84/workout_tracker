@@ -22,6 +22,12 @@ export function ExerciseRow({ exercise }: { exercise: Exercise }) {
     FormData
   >(boundUpdate, undefined);
 
+  const boundDelete = deleteExerciseAction.bind(null, exercise.id);
+  const [deleteState, deleteFormAction, deletePending] = useActionState<
+    ExerciseFormState,
+    FormData
+  >(boundDelete, undefined);
+
   // Close the edit form once a save succeeds. Adjusting state during
   // render (rather than in an effect) per React's guidance for "resetting
   // state when a value changes" - https://react.dev/learn/you-might-not-need-an-effect
@@ -35,38 +41,44 @@ export function ExerciseRow({ exercise }: { exercise: Exercise }) {
 
   if (!editing) {
     return (
-      <li className="flex items-center justify-between gap-4 p-3">
-        <div>
-          <p className="text-sm font-medium">{exercise.name}</p>
-          <p className="text-muted-foreground text-xs">
-            {exercise.muscleGroup ? `${exercise.muscleGroup} · ` : ""}
-            {SET_TYPE_LABELS[exercise.defaultSetType]}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-xs underline"
-          >
-            Edit
-          </button>
-          <form
-            action={deleteExerciseAction.bind(null, exercise.id)}
-            onSubmit={(e) => {
-              if (!confirm(`Delete "${exercise.name}"?`)) {
-                e.preventDefault();
-              }
-            }}
-          >
+      <li className="space-y-1 p-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">{exercise.name}</p>
+            <p className="text-muted-foreground text-xs">
+              {exercise.muscleGroup ? `${exercise.muscleGroup} · ` : ""}
+              {SET_TYPE_LABELS[exercise.defaultSetType]}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
             <button
-              type="submit"
-              className="text-destructive text-xs underline"
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-xs underline"
             >
-              Delete
+              Edit
             </button>
-          </form>
+            <form
+              action={deleteFormAction}
+              onSubmit={(e) => {
+                if (!confirm(`Delete "${exercise.name}"?`)) {
+                  e.preventDefault();
+                }
+              }}
+            >
+              <button
+                type="submit"
+                disabled={deletePending}
+                className="text-destructive text-xs underline disabled:opacity-50"
+              >
+                {deletePending ? "Deleting…" : "Delete"}
+              </button>
+            </form>
+          </div>
         </div>
+        {deleteState?.error && (
+          <p className="text-destructive text-xs">{deleteState.error}</p>
+        )}
       </li>
     );
   }

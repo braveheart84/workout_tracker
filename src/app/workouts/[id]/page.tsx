@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import type { WorkoutSession } from "@/generated/prisma/client";
 import { finishWorkoutSessionAction } from "../actions";
 import { SessionForm } from "./session-form";
+import { BlocksManager } from "./blocks-manager";
 
 const STATUS_LABELS: Record<WorkoutSession["status"], string> = {
   PLANNED: "Planned",
@@ -32,6 +33,23 @@ export default async function WorkoutSessionPage({
     notFound();
   }
 
+  const [blocks, exercises] = await Promise.all([
+    prisma.workoutBlock.findMany({
+      where: { sessionId: id },
+      orderBy: { order: "asc" },
+      include: {
+        workoutExercises: {
+          orderBy: { order: "asc" },
+          include: { exercise: true },
+        },
+      },
+    }),
+    prisma.exercise.findMany({
+      where: { userId: session.user.id },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
   const isInProgress = workoutSession.status === "IN_PROGRESS";
 
   return (
@@ -52,6 +70,13 @@ export default async function WorkoutSessionPage({
         </p>
 
         <SessionForm workoutSession={workoutSession} disabled={!isInProgress} />
+
+        <BlocksManager
+          sessionId={id}
+          blocks={blocks}
+          exercises={exercises}
+          disabled={!isInProgress}
+        />
 
         {isInProgress ? (
           <form
