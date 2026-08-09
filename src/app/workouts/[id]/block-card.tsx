@@ -1,7 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import type { Exercise } from "@/generated/prisma/client";
+import type {
+  Exercise,
+  Set as WorkoutSet,
+  WeightUnit,
+} from "@/generated/prisma/client";
 import {
   deleteBlockAction,
   moveBlockAction,
@@ -16,13 +20,20 @@ type BlockWithExercises = {
   order: number;
   roundCount: number;
   restSeconds: number | null;
-  workoutExercises: { id: string; order: number; exercise: Exercise }[];
+  workoutExercises: {
+    id: string;
+    order: number;
+    noteForNextTime: string | null;
+    exercise: Exercise;
+    sets: WorkoutSet[];
+  }[];
 };
 
 export function BlockCard({
   sessionId,
   block,
   exercises,
+  defaultWeightUnit,
   disabled,
   isFirst,
   isLast,
@@ -30,6 +41,7 @@ export function BlockCard({
   sessionId: string;
   block: BlockWithExercises;
   exercises: Exercise[];
+  defaultWeightUnit: WeightUnit;
   disabled: boolean;
   isFirst: boolean;
   isLast: boolean;
@@ -152,7 +164,9 @@ export function BlockCard({
               key={we.id}
               sessionId={sessionId}
               blockId={block.id}
+              roundCount={block.roundCount}
               workoutExercise={we}
+              defaultWeightUnit={defaultWeightUnit}
               disabled={disabled}
               isFirst={index === 0}
               isLast={index === sortedExercises.length - 1}

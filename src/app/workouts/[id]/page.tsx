@@ -33,14 +33,14 @@ export default async function WorkoutSessionPage({
     notFound();
   }
 
-  const [blocks, exercises] = await Promise.all([
+  const [blocks, exercises, user] = await Promise.all([
     prisma.workoutBlock.findMany({
       where: { sessionId: id },
       orderBy: { order: "asc" },
       include: {
         workoutExercises: {
           orderBy: { order: "asc" },
-          include: { exercise: true },
+          include: { exercise: true, sets: true },
         },
       },
     }),
@@ -48,8 +48,13 @@ export default async function WorkoutSessionPage({
       where: { userId: session.user.id },
       orderBy: { name: "asc" },
     }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: session.user.id },
+      select: { unitSystem: true },
+    }),
   ]);
 
+  const defaultWeightUnit = user.unitSystem === "IMPERIAL" ? "LB" : "KG";
   const isInProgress = workoutSession.status === "IN_PROGRESS";
 
   return (
@@ -75,6 +80,7 @@ export default async function WorkoutSessionPage({
           sessionId={id}
           blocks={blocks}
           exercises={exercises}
+          defaultWeightUnit={defaultWeightUnit}
           disabled={!isInProgress}
         />
 

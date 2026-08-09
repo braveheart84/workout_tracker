@@ -137,6 +137,54 @@ export async function moveBlockAction(
   revalidatePath(`/workouts/${sessionId}`);
 }
 
+const noteSchema = z.object({
+  noteForNextTime: z
+    .string()
+    .max(500)
+    .transform((v) => (v.trim() === "" ? null : v.trim())),
+});
+
+export type NoteFormState = { error?: string; success?: boolean } | undefined;
+
+export async function updateExerciseNoteAction(
+  sessionId: string,
+  workoutExerciseId: string,
+  _prevState: NoteFormState,
+  formData: FormData,
+): Promise<NoteFormState> {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const parsed = noteSchema.safeParse({
+    noteForNextTime: formData.get("noteForNextTime"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const result = await prisma.workoutExercise.updateMany({
+    where: {
+      id: workoutExerciseId,
+      block: {
+        session: {
+          id: sessionId,
+          userId: session.user.id,
+          status: "IN_PROGRESS",
+        },
+      },
+    },
+    data: parsed.data,
+  });
+  if (result.count === 0) {
+    return { error: "Exercise not found." };
+  }
+
+  revalidatePath(`/workouts/${sessionId}`);
+  return { success: true };
+}
+
 const addExerciseSchema = z.object({
   exerciseId: z.string().min(1, "Select an exercise."),
 });
