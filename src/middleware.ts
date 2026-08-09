@@ -13,5 +13,7 @@ export const config = {
     "/settings/:path*",
     "/exercises",
     "/exercises/:path*",
+    "/workouts",
+    "/workouts/:path*",
   ],
 };
