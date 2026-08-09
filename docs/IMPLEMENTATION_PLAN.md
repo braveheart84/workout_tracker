@@ -65,6 +65,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** `Exercise` table + migration; CRUD API and UI for a per-user exercise library (name, default muscle group, default set type); typeahead/select component for reuse in later PRs.
 - **Deployable because:** a standalone library screen; nothing else references it yet.
 - **PRD ref:** 7.4 (exercise library bullet); Section 9 (`Exercise`).
+- **Status:** ✅ Shipped — GitHub PR #9. Typeahead/select component deferred: nothing consumes the exercise library yet (that starts in PR-07), so it was cut to keep this PR to what's actually needed now rather than guessing at requirements — will build it against PR-07's real usage instead.
 
 ### PR-06: Ad-hoc workout session shell
 

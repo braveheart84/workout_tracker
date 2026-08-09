@@ -15,6 +15,12 @@ enum UnitSystem {
   IMPERIAL
 }
 
+enum SetType {
+  REPS
+  DURATION
+  DISTANCE
+}
+
 // PRD Section 9 (User)
 model User {
   id                String     @id @default(uuid())
@@ -24,5 +30,22 @@ model User {
   remindersEnabled  Boolean    @default(true) @map("reminders_enabled")
   createdAt         DateTime   @default(now()) @map("created_at")
 
+  exercises Exercise[]
+
   @@map("users")
+}
+
+// PRD Section 9 (Exercise) - per-user exercise library
+model Exercise {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  name           String
+  muscleGroup    String?  @map("muscle_group")
+  defaultSetType SetType  @default(REPS) @map("default_set_type")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@map("exercises")
 }
