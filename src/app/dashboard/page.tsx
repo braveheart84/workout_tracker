@@ -22,6 +22,9 @@ export default async function DashboardPage() {
         </button>
       </form>
       <div className="flex gap-4 text-sm">
+        <Link href="/history" className="underline">
+          History
+        </Link>
         <Link href="/exercises" className="underline">
           Exercise library
         </Link>

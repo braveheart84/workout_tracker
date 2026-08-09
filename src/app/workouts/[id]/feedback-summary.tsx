@@ -1,10 +1,4 @@
-const DIFFICULTY_LABELS = [
-  "Too Easy",
-  "Easy",
-  "About Right",
-  "Hard",
-  "Too Hard",
-];
+import { DIFFICULTY_LABELS } from "@/lib/difficulty";
 
 export function FeedbackSummary({
   difficultyRating,
