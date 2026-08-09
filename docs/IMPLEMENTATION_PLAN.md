@@ -105,6 +105,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** chronological history list (strength sessions only at this point) with summary cards; full-detail view of any past session.
 - **Deployable because:** pure read view over data that already exists.
 - **PRD ref:** 7.8.
+- **Status:** 🚧 In review — GitHub PR #14. Pure read view, no schema changes; links straight into the existing `/workouts/[id]` page (already read-only for non-`IN_PROGRESS` sessions since PR-07/08/09) rather than building a separate detail view. Capped to the 50 most recent sessions rather than paginating, since that wasn't asked for yet.
 
 ---
 
