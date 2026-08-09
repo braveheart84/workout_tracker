@@ -9,9 +9,12 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    // Migrations run against the direct (non-pooled) connection - Supabase's
-    // pooler (used for DATABASE_URL at runtime, see src/lib/prisma.ts) doesn't
-    // reliably support the DDL/session features `migrate` needs.
+    // Migrations run against DIRECT_URL, which should be Supabase's SESSION
+    // pooler connection string (not the transaction pooler used for
+    // DATABASE_URL at runtime - see src/lib/prisma.ts - and not the raw
+    // "direct connection" host either, which is IPv6-only unless you've paid
+    // for Supabase's IPv4 add-on, and unreachable from Vercel's build
+    // environment as a result). See .env.example for the exact format.
     url: process.env["DIRECT_URL"],
     shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
   },
