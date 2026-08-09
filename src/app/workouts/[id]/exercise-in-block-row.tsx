@@ -1,22 +1,38 @@
 "use client";
 
-import type { Exercise } from "@/generated/prisma/client";
+import type {
+  Exercise,
+  Set as WorkoutSet,
+  WeightUnit,
+} from "@/generated/prisma/client";
 import {
   moveExerciseAction,
   removeExerciseFromBlockAction,
 } from "./block-actions";
+import { ExerciseNoteForm } from "./exercise-note-form";
+import { RoundSets } from "./round-sets";
 
 export function ExerciseInBlockRow({
   sessionId,
   blockId,
+  roundCount,
   workoutExercise,
+  defaultWeightUnit,
   disabled,
   isFirst,
   isLast,
 }: {
   sessionId: string;
   blockId: string;
-  workoutExercise: { id: string; order: number; exercise: Exercise };
+  roundCount: number;
+  workoutExercise: {
+    id: string;
+    order: number;
+    noteForNextTime: string | null;
+    exercise: Exercise;
+    sets: WorkoutSet[];
+  };
+  defaultWeightUnit: WeightUnit;
   disabled: boolean;
   isFirst: boolean;
   isLast: boolean;
@@ -24,65 +40,91 @@ export function ExerciseInBlockRow({
   const { exercise } = workoutExercise;
 
   return (
-    <li className="flex items-center justify-between gap-4 p-2 text-sm">
-      <span>
-        {exercise.name}
-        {exercise.muscleGroup ? (
-          <span className="text-muted-foreground">
-            {" "}
-            · {exercise.muscleGroup}
-          </span>
-        ) : null}
-      </span>
-      {!disabled && (
-        <div className="flex items-center gap-3 text-xs">
-          <form
-            action={moveExerciseAction.bind(
-              null,
-              sessionId,
-              blockId,
-              workoutExercise.id,
-              "up",
-            )}
-          >
-            <button
-              type="submit"
-              disabled={isFirst}
-              className="underline disabled:opacity-30"
+    <li className="flex flex-col gap-2 p-2 text-sm">
+      <div className="flex items-center justify-between gap-4">
+        <span>
+          {exercise.name}
+          {exercise.muscleGroup ? (
+            <span className="text-muted-foreground">
+              {" "}
+              · {exercise.muscleGroup}
+            </span>
+          ) : null}
+        </span>
+        {!disabled && (
+          <div className="flex items-center gap-3 text-xs">
+            <form
+              action={moveExerciseAction.bind(
+                null,
+                sessionId,
+                blockId,
+                workoutExercise.id,
+                "up",
+              )}
             >
-              ↑
-            </button>
-          </form>
-          <form
-            action={moveExerciseAction.bind(
-              null,
-              sessionId,
-              blockId,
-              workoutExercise.id,
-              "down",
-            )}
-          >
-            <button
-              type="submit"
-              disabled={isLast}
-              className="underline disabled:opacity-30"
+              <button
+                type="submit"
+                disabled={isFirst}
+                className="underline disabled:opacity-30"
+              >
+                ↑
+              </button>
+            </form>
+            <form
+              action={moveExerciseAction.bind(
+                null,
+                sessionId,
+                blockId,
+                workoutExercise.id,
+                "down",
+              )}
             >
-              ↓
-            </button>
-          </form>
-          <form
-            action={removeExerciseFromBlockAction.bind(
-              null,
-              sessionId,
-              workoutExercise.id,
-            )}
-          >
-            <button type="submit" className="text-destructive underline">
-              Remove
-            </button>
-          </form>
-        </div>
+              <button
+                type="submit"
+                disabled={isLast}
+                className="underline disabled:opacity-30"
+              >
+                ↓
+              </button>
+            </form>
+            <form
+              action={removeExerciseFromBlockAction.bind(
+                null,
+                sessionId,
+                workoutExercise.id,
+              )}
+            >
+              <button type="submit" className="text-destructive underline">
+                Remove
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {disabled ? (
+        workoutExercise.noteForNextTime && (
+          <p className="text-muted-foreground text-xs">
+            Note: {workoutExercise.noteForNextTime}
+          </p>
+        )
+      ) : (
+        <ExerciseNoteForm
+          sessionId={sessionId}
+          workoutExerciseId={workoutExercise.id}
+          initialNote={workoutExercise.noteForNextTime}
+        />
       )}
+
+      <RoundSets
+        sessionId={sessionId}
+        workoutExerciseId={workoutExercise.id}
+        setType={exercise.defaultSetType}
+        roundCount={roundCount}
+        sets={workoutExercise.sets}
+        defaultWeightUnit={defaultWeightUnit}
+        disabled={disabled}
+      />
     </li>
   );
 }

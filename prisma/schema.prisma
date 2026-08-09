@@ -38,14 +38,19 @@ enum WorkoutSessionSource {
   AI_GENERATED
 }
 
+enum WeightUnit {
+  KG
+  LB
+}
+
 // PRD Section 9 (User)
 model User {
-  id                String     @id @default(uuid())
-  email             String     @unique
-  passwordHash      String     @map("password_hash")
-  unitSystem        UnitSystem @default(METRIC) @map("unit_system")
-  remindersEnabled  Boolean    @default(true) @map("reminders_enabled")
-  createdAt         DateTime   @default(now()) @map("created_at")
+  id               String     @id @default(uuid())
+  email            String     @unique
+  passwordHash     String     @map("password_hash")
+  unitSystem       UnitSystem @default(METRIC) @map("unit_system")
+  remindersEnabled Boolean    @default(true) @map("reminders_enabled")
+  createdAt        DateTime   @default(now()) @map("created_at")
 
   exercises       Exercise[]
   workoutSessions WorkoutSession[]
@@ -118,6 +123,28 @@ model WorkoutExercise {
 
   block    WorkoutBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
   exercise Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  sets     Set[]
 
   @@map("workout_exercises")
+}
+
+// PRD Section 9 (Set) - one set per round for a workout exercise, or more
+// if the user does extra sets within a round. `suggested_*` fields aren't
+// added yet - they're only meaningful once AI generation (7.2) exists to
+// populate them.
+model Set {
+  id                String      @id @default(uuid())
+  workoutExerciseId String      @map("workout_exercise_id")
+  roundNumber       Int         @map("round_number")
+  setType           SetType     @map("set_type")
+  reps              Int?
+  weight            Float?
+  weightUnit        WeightUnit? @map("weight_unit")
+  durationSeconds   Int?        @map("duration_seconds")
+  distanceMeters    Float?      @map("distance_meters")
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+
+  @@map("sets")
 }

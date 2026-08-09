@@ -1,4 +1,8 @@
-import type { Exercise } from "@/generated/prisma/client";
+import type {
+  Exercise,
+  Set as WorkoutSet,
+  WeightUnit,
+} from "@/generated/prisma/client";
 import { addBlockAction } from "./block-actions";
 import { BlockCard } from "./block-card";
 
@@ -7,18 +11,26 @@ type BlockWithExercises = {
   order: number;
   roundCount: number;
   restSeconds: number | null;
-  workoutExercises: { id: string; order: number; exercise: Exercise }[];
+  workoutExercises: {
+    id: string;
+    order: number;
+    noteForNextTime: string | null;
+    exercise: Exercise;
+    sets: WorkoutSet[];
+  }[];
 };
 
 export function BlocksManager({
   sessionId,
   blocks,
   exercises,
+  defaultWeightUnit,
   disabled,
 }: {
   sessionId: string;
   blocks: BlockWithExercises[];
   exercises: Exercise[];
+  defaultWeightUnit: WeightUnit;
   disabled: boolean;
 }) {
   const sortedBlocks = [...blocks].sort((a, b) => a.order - b.order);
@@ -36,6 +48,7 @@ export function BlocksManager({
               sessionId={sessionId}
               block={block}
               exercises={exercises}
+              defaultWeightUnit={defaultWeightUnit}
               disabled={disabled}
               isFirst={index === 0}
               isLast={index === sortedBlocks.length - 1}
