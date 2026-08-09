@@ -79,16 +79,68 @@ export async function updateWorkoutSessionAction(
   return { success: true };
 }
 
-export async function finishWorkoutSessionAction(id: string) {
+function optionalRating(min: number, max: number, label: string) {
+  return z.preprocess(
+    (v) => (v === null || v === "" ? null : v),
+    z
+      .string()
+      .transform((v) => Number(v))
+      .refine(
+        (v) => Number.isInteger(v) && v >= min && v <= max,
+        `${label} must be between ${min} and ${max}.`,
+      )
+      .nullable(),
+  );
+}
+
+const optionalNote = (max: number) =>
+  z
+    .string()
+    .max(max)
+    .transform((v) => (v.trim() === "" ? null : v.trim()));
+
+const feedbackSchema = z.object({
+  difficultyRating: optionalRating(1, 5, "Difficulty rating"),
+  difficultyNote: optionalNote(1000),
+  energyRating: optionalRating(1, 10, "Energy rating"),
+  goalForNext: optionalNote(1000),
+});
+
+export type FinishWorkoutFormState =
+  { error?: string; success?: boolean } | undefined;
+
+export async function finishWorkoutSessionAction(
+  id: string,
+  _prevState: FinishWorkoutFormState,
+  formData: FormData,
+): Promise<FinishWorkoutFormState> {
   const session = await auth();
   if (!session?.user) {
-    redirect("/login");
+    return { error: "You must be logged in." };
   }
 
-  await prisma.workoutSession.updateMany({
-    where: { id, userId: session.user.id, status: "IN_PROGRESS" },
-    data: { status: "COMPLETED", completedAt: new Date() },
+  const parsed = feedbackSchema.safeParse({
+    difficultyRating: formData.get("difficultyRating"),
+    difficultyNote: formData.get("difficultyNote"),
+    energyRating: formData.get("energyRating"),
+    goalForNext: formData.get("goalForNext"),
   });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const result = await prisma.workoutSession.updateMany({
+    where: { id, userId: session.user.id, status: "IN_PROGRESS" },
+    data: {
+      status: "COMPLETED",
+      completedAt: new Date(),
+      ...parsed.data,
+    },
+  });
+  if (result.count === 0) {
+    return { error: "Workout not found or already finished." };
+  }
 
   revalidatePath(`/workouts/${id}`);
+  return { success: true };
 }

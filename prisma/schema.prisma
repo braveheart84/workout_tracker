@@ -75,22 +75,26 @@ model Exercise {
 }
 
 // PRD Section 9 (WorkoutSession) - fields introduced by later PRs (plan_id,
-// template_id, focus_tags, post-workout feedback fields) are added by the
-// PRs that actually use them, not sketched in ahead of need.
+// template_id, focus_tags) are added by the PRs that actually use them, not
+// sketched in ahead of need.
 model WorkoutSession {
-  id            String               @id @default(uuid())
-  userId        String               @map("user_id")
-  date          DateTime             @db.Date
-  status        WorkoutSessionStatus @default(IN_PROGRESS)
-  type          WorkoutSessionType   @default(STRENGTH)
-  label         String?
-  warmupNotes   String?              @map("warmup_notes")
-  finisherNotes String?              @map("finisher_notes")
-  cooldownNotes String?              @map("cooldown_notes")
-  source        WorkoutSessionSource @default(MANUAL)
-  createdAt     DateTime             @default(now()) @map("created_at")
-  startedAt     DateTime?            @map("started_at")
-  completedAt   DateTime?            @map("completed_at")
+  id               String               @id @default(uuid())
+  userId           String               @map("user_id")
+  date             DateTime             @db.Date
+  status           WorkoutSessionStatus @default(IN_PROGRESS)
+  type             WorkoutSessionType   @default(STRENGTH)
+  label            String?
+  warmupNotes      String?              @map("warmup_notes")
+  finisherNotes    String?              @map("finisher_notes")
+  cooldownNotes    String?              @map("cooldown_notes")
+  difficultyRating Int?                 @map("difficulty_rating")
+  difficultyNote   String?              @map("difficulty_note")
+  energyRating     Int?                 @map("energy_rating")
+  goalForNext      String?              @map("goal_for_next")
+  source           WorkoutSessionSource @default(MANUAL)
+  createdAt        DateTime             @default(now()) @map("created_at")
+  startedAt        DateTime?            @map("started_at")
+  completedAt      DateTime?            @map("completed_at")
 
   user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   blocks WorkoutBlock[]
