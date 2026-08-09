@@ -5,14 +5,7 @@ import {
   finishWorkoutSessionAction,
   type FinishWorkoutFormState,
 } from "../actions";
-
-const DIFFICULTY_LABELS = [
-  "Too Easy",
-  "Easy",
-  "About Right",
-  "Hard",
-  "Too Hard",
-];
+import { DIFFICULTY_LABELS } from "@/lib/difficulty";
 
 export function FinishWorkoutForm({ sessionId }: { sessionId: string }) {
   const boundFinish = finishWorkoutSessionAction.bind(null, sessionId);
