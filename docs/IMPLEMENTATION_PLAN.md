@@ -89,6 +89,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** `Set` table + migration; logging UI for all three set types (reps+weight, duration, distance) per round; edit/delete; per-exercise "note for next time" field; new sets default to the account's unit system (PR-04).
 - **Deployable because:** completes the core manual logging loop — a real workout can be fully logged.
 - **PRD ref:** 7.4 (set types); Section 9 (`Set`).
+- **Status:** 🚧 In review — GitHub PR #12. `suggested_*` fields from the Section 9 sketch aren't on the model yet — deferred to the PR that actually populates them (AI generation, 7.2), same additive-columns pattern as elsewhere. `Set.setType` is always taken from the exercise's own `defaultSetType` server-side rather than trusted from the client. Also wires up `WorkoutExercise.noteForNextTime`, on the schema since PR-07 but unused until this PR's UI.
 
 ### PR-09: Post-Workout Feedback
 
