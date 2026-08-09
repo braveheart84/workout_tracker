@@ -125,6 +125,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** "Today" landing view showing today's session if one exists (still manual/ad-hoc at this point) with a one-tap "Start Workout" entry point; empty state prompting an ad-hoc start.
 - **Deployable because:** a new home screen wired to existing data; no new backend logic.
 - **PRD ref:** 7.3 (Today view, ahead of AI-generated plans).
+- **Status:** 🚧 In review — GitHub PR #16. Reworked the existing `/dashboard` route itself into the Today view rather than adding a separate route, since it was already the login/signup redirect target and home screen. Scoped down from full 7.3 to just today's manual/ad-hoc session state (in progress / completed / none) - the week view, planned-day review screen, and skipped-day rescheduling all depend on `WorkoutPlan`, which doesn't exist until Phase 3.
 
 ---
 

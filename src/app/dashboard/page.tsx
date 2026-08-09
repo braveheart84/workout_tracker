@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { startAdHocWorkoutAction } from "@/app/workouts/actions";
 
 export default async function DashboardPage() {
@@ -9,18 +10,71 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const now = new Date();
+  const todayStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
+
+  const todaysSessions = await prisma.workoutSession.findMany({
+    where: {
+      userId: session.user.id,
+      date: { gte: todayStart, lt: tomorrowStart },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const inProgress = todaysSessions.find((s) => s.status === "IN_PROGRESS");
+  const completed = todaysSessions.find((s) => s.status === "COMPLETED");
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
       <p className="text-muted-foreground">Logged in as {session.user.email}</p>
-      <form action={startAdHocWorkoutAction}>
-        <button
-          type="submit"
-          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium"
-        >
-          Start ad-hoc workout
-        </button>
-      </form>
+
+      {inProgress ? (
+        <div className="space-y-2">
+          <p className="text-sm">You have a workout in progress.</p>
+          <Link
+            href={`/workouts/${inProgress.id}`}
+            className="bg-primary text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
+          >
+            Continue Workout
+          </Link>
+        </div>
+      ) : completed ? (
+        <div className="space-y-2">
+          <p className="text-sm">Nice work — you completed a workout today.</p>
+          <Link
+            href={`/workouts/${completed.id}`}
+            className="text-sm underline"
+          >
+            View workout
+          </Link>
+          <form action={startAdHocWorkoutAction}>
+            <button
+              type="submit"
+              className="border-input rounded-md border px-4 py-2 text-sm font-medium"
+            >
+              Start another workout
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-muted-foreground text-sm">No workout yet today.</p>
+          <form action={startAdHocWorkoutAction}>
+            <button
+              type="submit"
+              className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium"
+            >
+              Start ad-hoc workout
+            </button>
+          </form>
+        </div>
+      )}
+
       <div className="flex gap-4 text-sm">
         <Link href="/history" className="underline">
           History
