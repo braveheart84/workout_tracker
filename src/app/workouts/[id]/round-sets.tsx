@@ -5,6 +5,7 @@ import type {
 } from "@/generated/prisma/client";
 import { SetRow } from "./set-row";
 import { AddSetForm } from "./add-set-form";
+import { DurationTimer } from "./duration-timer";
 
 export function RoundSets({
   sessionId,
@@ -56,6 +57,17 @@ export function RoundSets({
                 setType={setType}
                 defaultWeightUnit={defaultWeightUnit}
               />
+            )}
+            {!disabled && setType === "DURATION" && (
+              <>
+                <p className="text-muted-foreground">or</p>
+                <DurationTimer
+                  sessionId={sessionId}
+                  workoutExerciseId={workoutExerciseId}
+                  roundNumber={round}
+                  defaultWeightUnit={defaultWeightUnit}
+                />
+              </>
             )}
           </div>
         );

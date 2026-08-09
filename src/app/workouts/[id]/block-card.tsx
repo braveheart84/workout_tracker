@@ -14,6 +14,7 @@ import {
 } from "./block-actions";
 import { AddExerciseToBlockForm } from "./add-exercise-to-block-form";
 import { ExerciseInBlockRow } from "./exercise-in-block-row";
+import { RestTimer } from "./rest-timer";
 
 type BlockWithExercises = {
   id: string;
@@ -28,6 +29,22 @@ type BlockWithExercises = {
     sets: WorkoutSet[];
   }[];
 };
+
+// Highest round number for which every exercise in the block has at least
+// one logged set, counting only from round 1 with no gaps - used to detect
+// when a round has just finished so a rest countdown can auto-start (PRD 7.5).
+function completedRounds(block: BlockWithExercises) {
+  if (block.workoutExercises.length === 0) return 0;
+  let complete = 0;
+  for (let round = 1; round <= block.roundCount; round++) {
+    const allLogged = block.workoutExercises.every((we) =>
+      we.sets.some((s) => s.roundNumber === round),
+    );
+    if (!allLogged) break;
+    complete = round;
+  }
+  return complete;
+}
 
 export function BlockCard({
   sessionId,
@@ -58,6 +75,21 @@ export function BlockCard({
     setPrevState(state);
     if (state?.success) {
       setEditing(false);
+    }
+  }
+
+  const nowCompleted = completedRounds(block);
+  const [prevCompleted, setPrevCompleted] = useState(nowCompleted);
+  const [restingForRound, setRestingForRound] = useState<number | null>(null);
+  if (nowCompleted !== prevCompleted) {
+    setPrevCompleted(nowCompleted);
+    if (
+      nowCompleted > prevCompleted &&
+      block.restSeconds &&
+      nowCompleted < block.roundCount &&
+      !disabled
+    ) {
+      setRestingForRound(nowCompleted);
     }
   }
 
@@ -155,6 +187,14 @@ export function BlockCard({
       )}
       {state?.error && (
         <p className="text-destructive text-sm">{state.error}</p>
+      )}
+
+      {restingForRound != null && block.restSeconds && (
+        <RestTimer
+          key={restingForRound}
+          restSeconds={block.restSeconds}
+          onDismiss={() => setRestingForRound(null)}
+        />
       )}
 
       {sortedExercises.length > 0 && (
