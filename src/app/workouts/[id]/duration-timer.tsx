@@ -11,6 +11,7 @@ import {
   requestNotificationPermission,
   requestWakeLock,
 } from "@/lib/timer-alerts";
+import { FloatingTimerBar } from "./floating-timer-bar";
 
 type PendingLog = {
   elapsedSeconds: number;
@@ -144,7 +145,8 @@ export function DurationTimer({
   }
 
   return (
-    <div className="space-y-1">
+    <FloatingTimerBar>
+      <p className="font-medium">Timer</p>
       <p className="text-2xl font-semibold tabular-nums">
         {formatTime(secondsLeft)}
       </p>
@@ -167,6 +169,6 @@ export function DurationTimer({
       </div>
       {submitting && <p className="text-muted-foreground text-xs">Logging…</p>}
       {error && <p className="text-destructive text-xs">{error}</p>}
-    </div>
+    </FloatingTimerBar>
   );
 }
