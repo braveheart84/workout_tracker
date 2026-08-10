@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useCountdown } from "@/lib/use-countdown";
 import { formatTime } from "@/lib/format-time";
 import {
@@ -17,21 +17,23 @@ export function RestTimer({
   restSeconds: number;
   onDismiss: () => void;
 }) {
-  const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const { secondsLeft, status, start, pause, resume, skip } = useCountdown(
     restSeconds,
     () => {
       alertTimerDone("Rest over!");
-      releaseWakeLock(wakeLock);
-      setWakeLock(null);
+      releaseWakeLock(wakeLockRef.current);
+      wakeLockRef.current = null;
     },
   );
 
   useEffect(() => {
     start();
     requestNotificationPermission();
-    requestWakeLock().then(setWakeLock);
+    requestWakeLock().then((lock) => {
+      wakeLockRef.current = lock;
+    });
   }, [start]);
 
   return (
