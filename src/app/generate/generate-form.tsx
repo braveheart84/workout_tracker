@@ -9,7 +9,13 @@ import {
   type AcceptFormState,
 } from "./actions";
 
-export function GenerateForm() {
+export function GenerateForm({
+  todayIso,
+  maxIso,
+}: {
+  todayIso: string;
+  maxIso: string;
+}) {
   const [state, formAction, pending] = useActionState<
     GenerateFormState,
     FormData
@@ -20,10 +26,25 @@ export function GenerateForm() {
   >(acceptWorkoutSuggestionAction, undefined);
 
   const suggestion = state?.suggestion;
+  const suggestionDate = state?.date ?? todayIso;
 
   return (
     <div className="space-y-4">
       <form action={formAction} className="space-y-3">
+        <div className="space-y-1">
+          <label htmlFor="date" className="text-sm font-medium">
+            Which day is this for?
+          </label>
+          <input
+            id="date"
+            type="date"
+            name="date"
+            defaultValue={todayIso}
+            min={todayIso}
+            max={maxIso}
+            className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </div>
         <div className="space-y-1">
           <label htmlFor="freeText" className="text-sm font-medium">
             How are you feeling? What do you want to work on? (optional)
@@ -59,6 +80,13 @@ export function GenerateForm() {
             <h2 className="text-sm font-medium">
               {suggestion.label || "Suggested Workout"}
             </h2>
+            <p className="text-muted-foreground text-xs">
+              For{" "}
+              {new Date(`${suggestionDate}T00:00:00.000Z`).toLocaleDateString(
+                undefined,
+                { timeZone: "UTC" },
+              )}
+            </p>
             {suggestion.rationale && (
               <p className="text-muted-foreground text-xs">
                 {suggestion.rationale}
@@ -95,6 +123,7 @@ export function GenerateForm() {
               name="suggestion"
               value={JSON.stringify(suggestion)}
             />
+            <input type="hidden" name="date" value={suggestionDate} />
             {acceptState?.error && (
               <p className="text-destructive text-sm">{acceptState.error}</p>
             )}
