@@ -15,6 +15,7 @@ import {
 import { AddExerciseToBlockForm } from "./add-exercise-to-block-form";
 import { ExerciseInBlockRow } from "./exercise-in-block-row";
 import { RestTimer } from "./rest-timer";
+import { SupersetRounds } from "./superset-rounds";
 
 type BlockWithExercises = {
   id: string;
@@ -100,6 +101,7 @@ export function BlockCard({
   const sortedExercises = [...block.workoutExercises].sort(
     (a, b) => a.order - b.order,
   );
+  const isSuperset = sortedExercises.length > 1;
 
   return (
     <li className="space-y-3 rounded-md border p-4">
@@ -198,21 +200,33 @@ export function BlockCard({
       )}
 
       {sortedExercises.length > 0 && (
-        <ul className="divide-border divide-y rounded-md border">
-          {sortedExercises.map((we, index) => (
-            <ExerciseInBlockRow
-              key={we.id}
+        <>
+          <ul className="divide-border divide-y rounded-md border">
+            {sortedExercises.map((we, index) => (
+              <ExerciseInBlockRow
+                key={we.id}
+                sessionId={sessionId}
+                blockId={block.id}
+                roundCount={block.roundCount}
+                workoutExercise={we}
+                defaultWeightUnit={defaultWeightUnit}
+                disabled={disabled}
+                isFirst={index === 0}
+                isLast={index === sortedExercises.length - 1}
+                showRounds={!isSuperset}
+              />
+            ))}
+          </ul>
+          {isSuperset && (
+            <SupersetRounds
               sessionId={sessionId}
-              blockId={block.id}
               roundCount={block.roundCount}
-              workoutExercise={we}
+              exercises={sortedExercises}
               defaultWeightUnit={defaultWeightUnit}
               disabled={disabled}
-              isFirst={index === 0}
-              isLast={index === sortedExercises.length - 1}
             />
-          ))}
-        </ul>
+          )}
+        </>
       )}
 
       {!disabled && (
