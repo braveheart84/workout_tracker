@@ -13,6 +13,7 @@ export function RoundSets({
   setType,
   roundCount,
   sets,
+  target,
   defaultWeightUnit,
   disabled,
 }: {
@@ -21,6 +22,7 @@ export function RoundSets({
   setType: SetType;
   roundCount: number;
   sets: WorkoutSet[];
+  target: number | null;
   defaultWeightUnit: WeightUnit;
   disabled: boolean;
 }) {
@@ -44,6 +46,7 @@ export function RoundSets({
                     sessionId={sessionId}
                     set={set}
                     setType={setType}
+                    target={target}
                     disabled={disabled}
                   />
                 ))}
@@ -54,7 +57,9 @@ export function RoundSets({
                 sessionId={sessionId}
                 workoutExerciseId={workoutExerciseId}
                 roundNumber={round}
+                target={target}
                 defaultWeightUnit={defaultWeightUnit}
+                hasLoggedSets={roundSets.length > 0}
               />
             )}
             {!disabled && setType !== "DURATION" && (
@@ -63,7 +68,9 @@ export function RoundSets({
                 workoutExerciseId={workoutExerciseId}
                 roundNumber={round}
                 setType={setType}
+                target={target}
                 defaultWeightUnit={defaultWeightUnit}
+                hasLoggedSets={roundSets.length > 0}
               />
             )}
           </div>

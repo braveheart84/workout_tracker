@@ -371,6 +371,9 @@ export async function persistWorkoutSuggestion(
             blockId: blockIdByOrder.get(blockIndex)!,
             exerciseId: exerciseIdByName.get(exercise.name)!,
             order: exerciseIndex,
+            targetReps: exercise.suggestedSet.reps,
+            targetDurationSeconds: exercise.suggestedSet.durationSeconds,
+            targetDistanceMeters: exercise.suggestedSet.distanceMeters,
           })),
         ),
       });

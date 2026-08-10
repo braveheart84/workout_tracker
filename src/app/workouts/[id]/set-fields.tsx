@@ -3,6 +3,7 @@ import type { SetType, WeightUnit } from "@/generated/prisma/client";
 export function SetFields({
   setType,
   defaults,
+  target,
   defaultWeightUnit,
 }: {
   setType: SetType;
@@ -13,6 +14,10 @@ export function SetFields({
     durationSeconds: number | null;
     distanceMeters: number | null;
   };
+  // The prescribed reps/seconds/meters for this exercise, from an
+  // AI-generated suggestion (null for manually-added exercises), shown
+  // alongside the input as a "/ N" hint so the user knows what to aim for.
+  target?: number | null;
   defaultWeightUnit?: WeightUnit;
 }) {
   return (
@@ -20,43 +25,58 @@ export function SetFields({
       {setType === "REPS" && (
         <div className="space-y-1">
           <label className="text-xs font-medium">Reps</label>
-          <input
-            type="number"
-            name="reps"
-            min={1}
-            max={1000}
-            required
-            defaultValue={defaults?.reps ?? undefined}
-            className="border-input bg-background w-16 rounded-md border px-2 py-1 text-sm"
-          />
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              name="reps"
+              min={1}
+              max={1000}
+              required
+              defaultValue={defaults?.reps ?? undefined}
+              className="border-input bg-background w-16 rounded-md border px-2 py-1 text-sm"
+            />
+            {target != null && (
+              <span className="text-muted-foreground text-xs">/ {target}</span>
+            )}
+          </div>
         </div>
       )}
       {setType === "DURATION" && (
         <div className="space-y-1">
           <label className="text-xs font-medium">Seconds</label>
-          <input
-            type="number"
-            name="durationSeconds"
-            min={1}
-            max={36000}
-            required
-            defaultValue={defaults?.durationSeconds ?? undefined}
-            className="border-input bg-background w-20 rounded-md border px-2 py-1 text-sm"
-          />
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              name="durationSeconds"
+              min={1}
+              max={36000}
+              required
+              defaultValue={defaults?.durationSeconds ?? undefined}
+              className="border-input bg-background w-20 rounded-md border px-2 py-1 text-sm"
+            />
+            {target != null && (
+              <span className="text-muted-foreground text-xs">/ {target}</span>
+            )}
+          </div>
         </div>
       )}
       {setType === "DISTANCE" && (
         <div className="space-y-1">
           <label className="text-xs font-medium">Meters</label>
-          <input
-            type="number"
-            name="distanceMeters"
-            min={0.1}
-            step={0.1}
-            required
-            defaultValue={defaults?.distanceMeters ?? undefined}
-            className="border-input bg-background w-20 rounded-md border px-2 py-1 text-sm"
-          />
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              name="distanceMeters"
+              min={0.1}
+              step={0.1}
+              required
+              defaultValue={defaults?.distanceMeters ?? undefined}
+              className="border-input bg-background w-20 rounded-md border px-2 py-1 text-sm"
+            />
+            {target != null && (
+              <span className="text-muted-foreground text-xs">/ {target}</span>
+            )}
+          </div>
         </div>
       )}
       <div className="space-y-1">

@@ -9,12 +9,16 @@ export function DurationLogging({
   sessionId,
   workoutExerciseId,
   roundNumber,
+  target,
   defaultWeightUnit,
+  hasLoggedSets,
 }: {
   sessionId: string;
   workoutExerciseId: string;
   roundNumber: number;
+  target: number | null;
   defaultWeightUnit: WeightUnit;
+  hasLoggedSets: boolean;
 }) {
   const [showManual, setShowManual] = useState(false);
 
@@ -32,7 +36,9 @@ export function DurationLogging({
           workoutExerciseId={workoutExerciseId}
           roundNumber={roundNumber}
           setType="DURATION"
+          target={target}
           defaultWeightUnit={defaultWeightUnit}
+          hasLoggedSets={hasLoggedSets}
         />
       ) : (
         <button
