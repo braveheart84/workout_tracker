@@ -11,6 +11,11 @@ import {
 } from "@/lib/workout-suggestion-schema";
 
 const freeTextSchema = z.string().max(1000);
+const feedbackSchema = z
+  .string()
+  .trim()
+  .min(1, "Describe what you'd like to change.")
+  .max(1000);
 
 // Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
 // a single-day suggestion can target any day from today through 6 days out.
@@ -121,6 +126,43 @@ function buildPrompt(
   return { system, prompt };
 }
 
+function buildRevisionPrompt(
+  currentSuggestion: WorkoutSuggestion,
+  feedback: string,
+  targetDate: Date,
+  libraryLines: string[],
+) {
+  const system = [
+    "You are a fitness coaching assistant inside a workout tracking app.",
+    "The user has already seen a suggested workout below and wants a specific change made to it, not a brand new workout.",
+    "Apply the requested change and return the complete revised workout structure matching the provided tool schema - not just the changed parts.",
+    "Keep everything else about the workout the same unless the requested change reasonably requires other adjustments (e.g. swapping an exercise for one working the same muscle group, or only touching the rounds/rest of the block the feedback is about).",
+    "Prefer reusing the user's existing exercise names from their library when a suitable match exists, rather than inventing near-duplicate names.",
+  ].join(" ");
+
+  const targetDateLabel = targetDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+  const prompt = [
+    `This workout is for: ${targetDateLabel}.`,
+    "",
+    `Current suggested workout:\n${JSON.stringify(currentSuggestion)}`,
+    "",
+    `Requested change: ${feedback}`,
+    "",
+    libraryLines.length > 0
+      ? `User's existing exercise library:\n${libraryLines.join("\n")}`
+      : "User's existing exercise library: empty.",
+  ].join("\n");
+
+  return { system, prompt };
+}
+
 export type GenerateFormState =
   { error?: string; suggestion?: WorkoutSuggestion; date?: string } | undefined;
 
@@ -176,6 +218,81 @@ export async function generateWorkoutSuggestionAction(
     return {
       error:
         "Couldn't generate a workout right now. Try again, or start one manually.",
+    };
+  }
+}
+
+// Applies a specific user-requested change to an already-generated
+// suggestion (e.g. "swap burpees for mountain climbers", "make the finisher
+// less intense") and returns the revised suggestion, without persisting
+// anything - the user can keep revising, regenerate from scratch, or accept,
+// same as the initial suggestion from generateWorkoutSuggestionAction.
+export async function reviseWorkoutSuggestionAction(
+  _prevState: GenerateFormState,
+  formData: FormData,
+): Promise<GenerateFormState> {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const raw = formData.get("currentSuggestion");
+  if (typeof raw !== "string") {
+    return { error: "Missing current suggestion." };
+  }
+
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return { error: "Invalid suggestion data." };
+  }
+
+  const parsedCurrent = workoutSuggestionSchema.safeParse(json);
+  if (!parsedCurrent.success) {
+    return { error: "Invalid suggestion data." };
+  }
+
+  const parsedFeedback = feedbackSchema.safeParse(formData.get("feedback"));
+  if (!parsedFeedback.success) {
+    return {
+      error:
+        parsedFeedback.error.issues[0]?.message ??
+        "Describe what you'd like to change.",
+    };
+  }
+
+  const parsedDate = dateSchema.safeParse(formData.get("date"));
+  if (!parsedDate.success) {
+    return {
+      error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
+    };
+  }
+  const targetDate = parsedDate.data;
+  const dateIso = targetDate.toISOString().slice(0, 10);
+
+  const { libraryLines } = await buildGenerationContext(session.user.id);
+  const { system, prompt } = buildRevisionPrompt(
+    parsedCurrent.data,
+    parsedFeedback.data,
+    targetDate,
+    libraryLines,
+  );
+
+  try {
+    const suggestion = await requestStructuredOutput({
+      system,
+      prompt,
+      schema: workoutSuggestionSchema,
+      toolDescription:
+        "Return the revised single day's suggested workout structure matching the schema.",
+    });
+    return { suggestion, date: dateIso };
+  } catch (error) {
+    console.error("Workout revision failed:", error);
+    return {
+      error:
+        "Couldn't apply that change right now. Try again, or accept the workout as-is.",
     };
   }
 }
