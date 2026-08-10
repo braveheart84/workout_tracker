@@ -22,6 +22,7 @@ export function ExerciseInBlockRow({
   isFirst,
   isLast,
   showRounds = true,
+  currentRound,
 }: {
   sessionId: string;
   blockId: string;
@@ -45,6 +46,9 @@ export function ExerciseInBlockRow({
   // e.g. squat's round 1 sits next to deadlift's round 1, matching how the
   // exercises are actually performed back-to-back.
   showRounds?: boolean;
+  // The round number that's "up next" for this exercise, or null if it's
+  // not this exercise's turn (or the workout isn't in progress).
+  currentRound: number | null;
 }) {
   const { exercise } = workoutExercise;
 
@@ -141,6 +145,7 @@ export function ExerciseInBlockRow({
           }
           defaultWeightUnit={defaultWeightUnit}
           disabled={disabled}
+          currentRound={currentRound}
         />
       )}
     </li>

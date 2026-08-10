@@ -23,6 +23,32 @@ type BlockWithExercises = {
   }[];
 };
 
+export type CurrentPosition = { workoutExerciseId: string; round: number };
+
+// The first round+exercise, in the order they're actually performed (block
+// order, then round, then exercise order within the round - matching how
+// SupersetRounds already interleaves a superset's exercises by round), that
+// has no logged set yet. Used to flag "this is what's up next" so the user
+// doesn't have to scan the whole page to find their place.
+function findCurrentPosition(
+  sortedBlocks: BlockWithExercises[],
+): CurrentPosition | null {
+  for (const block of sortedBlocks) {
+    const sortedExercises = [...block.workoutExercises].sort(
+      (a, b) => a.order - b.order,
+    );
+    for (let round = 1; round <= block.roundCount; round++) {
+      for (const we of sortedExercises) {
+        const hasSet = we.sets.some((s) => s.roundNumber === round);
+        if (!hasSet) {
+          return { workoutExerciseId: we.id, round };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function BlocksManager({
   sessionId,
   blocks,
@@ -37,6 +63,9 @@ export function BlocksManager({
   disabled: boolean;
 }) {
   const sortedBlocks = [...blocks].sort((a, b) => a.order - b.order);
+  // No "up next" to show for a workout that hasn't started or is already
+  // over - only meaningful while it's actually being logged.
+  const current = disabled ? null : findCurrentPosition(sortedBlocks);
 
   return (
     <div className="space-y-4">
@@ -55,6 +84,7 @@ export function BlocksManager({
               disabled={disabled}
               isFirst={index === 0}
               isLast={index === sortedBlocks.length - 1}
+              current={current}
             />
           ))}
         </ul>

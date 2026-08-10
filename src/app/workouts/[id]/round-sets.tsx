@@ -16,6 +16,7 @@ export function RoundSets({
   target,
   defaultWeightUnit,
   disabled,
+  currentRound,
 }: {
   sessionId: string;
   workoutExerciseId: string;
@@ -25,6 +26,7 @@ export function RoundSets({
   target: number | null;
   defaultWeightUnit: WeightUnit;
   disabled: boolean;
+  currentRound: number | null;
 }) {
   const rounds = Array.from({ length: roundCount }, (_, i) => i + 1);
 
@@ -34,10 +36,25 @@ export function RoundSets({
         const roundSets = sets
           .filter((s) => s.roundNumber === round)
           .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        const isCurrent = currentRound === round;
 
         return (
-          <div key={round} className="space-y-1">
-            <p className="text-muted-foreground font-medium">Round {round}</p>
+          <div
+            key={round}
+            className={
+              isCurrent
+                ? "ring-primary/50 space-y-1 rounded-md p-1 ring-2"
+                : "space-y-1"
+            }
+          >
+            <p className="text-muted-foreground font-medium">
+              Round {round}
+              {isCurrent && (
+                <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                  Up next
+                </span>
+              )}
+            </p>
             {roundSets.length > 0 && (
               <ul className="space-y-1">
                 {roundSets.map((set) => (

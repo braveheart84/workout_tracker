@@ -16,6 +16,7 @@ import { AddExerciseToBlockForm } from "./add-exercise-to-block-form";
 import { ExerciseInBlockRow } from "./exercise-in-block-row";
 import { RestTimer } from "./rest-timer";
 import { SupersetRounds } from "./superset-rounds";
+import type { CurrentPosition } from "./blocks-manager";
 
 type BlockWithExercises = {
   id: string;
@@ -58,6 +59,7 @@ export function BlockCard({
   disabled,
   isFirst,
   isLast,
+  current,
 }: {
   sessionId: string;
   block: BlockWithExercises;
@@ -66,6 +68,7 @@ export function BlockCard({
   disabled: boolean;
   isFirst: boolean;
   isLast: boolean;
+  current: CurrentPosition | null;
 }) {
   const [editing, setEditing] = useState(false);
   const boundUpdate = updateBlockAction.bind(null, sessionId, block.id);
@@ -217,6 +220,9 @@ export function BlockCard({
                 isFirst={index === 0}
                 isLast={index === sortedExercises.length - 1}
                 showRounds={!isSuperset}
+                currentRound={
+                  current?.workoutExerciseId === we.id ? current.round : null
+                }
               />
             ))}
           </ul>
@@ -227,6 +233,7 @@ export function BlockCard({
               exercises={sortedExercises}
               defaultWeightUnit={defaultWeightUnit}
               disabled={disabled}
+              current={current}
             />
           )}
         </>
