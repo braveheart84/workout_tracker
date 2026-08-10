@@ -22,6 +22,9 @@ export function SupersetRounds({
   roundCount: number;
   exercises: {
     id: string;
+    targetReps: number | null;
+    targetDurationSeconds: number | null;
+    targetDistanceMeters: number | null;
     exercise: Exercise;
     sets: WorkoutSet[];
   }[];
@@ -41,6 +44,12 @@ export function SupersetRounds({
           <div className="divide-border space-y-2 divide-y">
             {exercises.map((we) => {
               const setType = we.exercise.defaultSetType;
+              const target =
+                setType === "REPS"
+                  ? we.targetReps
+                  : setType === "DURATION"
+                    ? we.targetDurationSeconds
+                    : we.targetDistanceMeters;
               const roundSets = we.sets
                 .filter((s) => s.roundNumber === round)
                 .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -56,6 +65,7 @@ export function SupersetRounds({
                           sessionId={sessionId}
                           set={set}
                           setType={setType}
+                          target={target}
                           disabled={disabled}
                         />
                       ))}
@@ -66,7 +76,9 @@ export function SupersetRounds({
                       sessionId={sessionId}
                       workoutExerciseId={we.id}
                       roundNumber={round}
+                      target={target}
                       defaultWeightUnit={defaultWeightUnit}
+                      hasLoggedSets={roundSets.length > 0}
                     />
                   )}
                   {!disabled && setType !== "DURATION" && (
@@ -75,7 +87,9 @@ export function SupersetRounds({
                       workoutExerciseId={we.id}
                       roundNumber={round}
                       setType={setType}
+                      target={target}
                       defaultWeightUnit={defaultWeightUnit}
+                      hasLoggedSets={roundSets.length > 0}
                     />
                   )}
                 </div>

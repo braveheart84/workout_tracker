@@ -26,6 +26,9 @@ type BlockWithExercises = {
     id: string;
     order: number;
     noteForNextTime: string | null;
+    targetReps: number | null;
+    targetDurationSeconds: number | null;
+    targetDistanceMeters: number | null;
     exercise: Exercise;
     sets: WorkoutSet[];
   }[];

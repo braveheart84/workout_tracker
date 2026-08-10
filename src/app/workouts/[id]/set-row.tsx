@@ -14,11 +14,13 @@ export function SetRow({
   sessionId,
   set,
   setType,
+  target,
   disabled,
 }: {
   sessionId: string;
   set: WorkoutSet;
   setType: SetType;
+  target: number | null;
   disabled: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -40,7 +42,7 @@ export function SetRow({
     return (
       <li className="space-y-1">
         <form action={formAction} className="flex flex-wrap items-end gap-2">
-          <SetFields setType={setType} defaults={set} />
+          <SetFields setType={setType} defaults={set} target={target} />
           <button
             type="submit"
             disabled={pending}

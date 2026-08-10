@@ -30,6 +30,9 @@ export function ExerciseInBlockRow({
     id: string;
     order: number;
     noteForNextTime: string | null;
+    targetReps: number | null;
+    targetDurationSeconds: number | null;
+    targetDistanceMeters: number | null;
     exercise: Exercise;
     sets: WorkoutSet[];
   };
@@ -129,6 +132,13 @@ export function ExerciseInBlockRow({
           setType={exercise.defaultSetType}
           roundCount={roundCount}
           sets={workoutExercise.sets}
+          target={
+            exercise.defaultSetType === "REPS"
+              ? workoutExercise.targetReps
+              : exercise.defaultSetType === "DURATION"
+                ? workoutExercise.targetDurationSeconds
+                : workoutExercise.targetDistanceMeters
+          }
           defaultWeightUnit={defaultWeightUnit}
           disabled={disabled}
         />

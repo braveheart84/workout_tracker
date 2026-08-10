@@ -117,13 +117,19 @@ model WorkoutBlock {
   @@map("workout_blocks")
 }
 
-// PRD Section 9 (WorkoutExercise)
+// PRD Section 9 (WorkoutExercise) - target* fields carry the prescribed
+// reps/duration/distance from an AI-generated suggestion (PR-14) through to
+// logging time, so the user can see what they're aiming for each round.
+// They're null for manually-added exercises, which have no such target.
 model WorkoutExercise {
-  id              String  @id @default(uuid())
-  blockId         String  @map("block_id")
-  exerciseId      String  @map("exercise_id")
-  order           Int
-  noteForNextTime String? @map("note_for_next_time")
+  id                    String  @id @default(uuid())
+  blockId               String  @map("block_id")
+  exerciseId            String  @map("exercise_id")
+  order                 Int
+  noteForNextTime       String? @map("note_for_next_time")
+  targetReps            Int?    @map("target_reps")
+  targetDurationSeconds Int?    @map("target_duration_seconds")
+  targetDistanceMeters  Float?  @map("target_distance_meters")
 
   block    WorkoutBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
   exercise Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
