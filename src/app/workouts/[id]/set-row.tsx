@@ -8,16 +8,7 @@ import {
   type SetFormState,
 } from "./set-actions";
 import { SetFields } from "./set-fields";
-
-function formatSet(set: WorkoutSet, setType: SetType) {
-  const weightPart =
-    set.weight != null
-      ? ` × ${set.weight}${set.weightUnit?.toLowerCase()}`
-      : "";
-  if (setType === "REPS") return `${set.reps} reps${weightPart}`;
-  if (setType === "DURATION") return `${set.durationSeconds}s${weightPart}`;
-  return `${set.distanceMeters}m${weightPart}`;
-}
+import { formatSetSummary } from "@/lib/format-set-summary";
 
 export function SetRow({
   sessionId,
@@ -74,7 +65,7 @@ export function SetRow({
 
   return (
     <li className="flex items-center justify-between gap-3">
-      <span>{formatSet(set, setType)}</span>
+      <span>{formatSetSummary(set)}</span>
       {!disabled && (
         <span className="flex items-center gap-2 text-xs">
           <button
