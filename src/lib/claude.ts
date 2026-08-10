@@ -79,6 +79,13 @@ export async function requestStructuredOutput<T>({
           name: TOOL_NAME,
           description: toolDescription,
           input_schema: inputSchema as Anthropic.Tool.InputSchema,
+          // Guarantees the API itself enforces the schema (required fields,
+          // nullability, array shapes) server-side, rather than relying on
+          // the model to freeform-honor it - without this, Claude has been
+          // observed omitting required fields or returning null instead of
+          // an empty/populated array on some calls, which schema.safeParse
+          // below would otherwise be the only thing catching.
+          strict: true,
         },
       ],
       tool_choice: { type: "tool", name: TOOL_NAME },
@@ -98,6 +105,14 @@ export async function requestStructuredOutput<T>({
 
   const parsed = schema.safeParse(toolUse.input);
   if (!parsed.success) {
+    // Log the raw payload alongside the validation error - the error alone
+    // says which fields were wrong, not what Claude actually sent, which is
+    // what's needed to tell a genuine model mistake apart from a bug in our
+    // own schema/prompt.
+    console.error(
+      "Claude tool_use input failed schema validation. Raw input:",
+      JSON.stringify(toolUse.input),
+    );
     throw new ClaudeStructuredOutputError(
       "Claude's response didn't match the expected shape.",
       { cause: parsed.error },
