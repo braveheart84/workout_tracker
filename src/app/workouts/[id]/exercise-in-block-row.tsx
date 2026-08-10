@@ -21,6 +21,7 @@ export function ExerciseInBlockRow({
   disabled,
   isFirst,
   isLast,
+  showRounds = true,
 }: {
   sessionId: string;
   blockId: string;
@@ -36,6 +37,11 @@ export function ExerciseInBlockRow({
   disabled: boolean;
   isFirst: boolean;
   isLast: boolean;
+  // False for blocks with more than one exercise (supersets), where rounds
+  // are instead rendered interleaved across exercises by SupersetRounds so
+  // e.g. squat's round 1 sits next to deadlift's round 1, matching how the
+  // exercises are actually performed back-to-back.
+  showRounds?: boolean;
 }) {
   const { exercise } = workoutExercise;
 
@@ -116,15 +122,17 @@ export function ExerciseInBlockRow({
         />
       )}
 
-      <RoundSets
-        sessionId={sessionId}
-        workoutExerciseId={workoutExercise.id}
-        setType={exercise.defaultSetType}
-        roundCount={roundCount}
-        sets={workoutExercise.sets}
-        defaultWeightUnit={defaultWeightUnit}
-        disabled={disabled}
-      />
+      {showRounds && (
+        <RoundSets
+          sessionId={sessionId}
+          workoutExerciseId={workoutExercise.id}
+          setType={exercise.defaultSetType}
+          roundCount={roundCount}
+          sets={workoutExercise.sets}
+          defaultWeightUnit={defaultWeightUnit}
+          disabled={disabled}
+        />
+      )}
     </li>
   );
 }
