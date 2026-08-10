@@ -137,6 +137,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** thin Anthropic Claude client wrapper (timeout + single retry); Zod schemas for the workout-suggestion JSON shape; no user-facing surface yet.
 - **Deployable because:** backend-only utility code, unused until PR-14 wires it in.
 - **PRD ref:** Section 8 (AI cost/latency); TECH_STACK.md Section 5.
+- **Status:** 🚧 In review — GitHub PR #19. Uses Zod v4's native `z.toJSONSchema()` rather than the third-party `zod-to-json-schema` package, which doesn't correctly introspect Zod v4 schemas. Timeout + single retry are delegated to the Anthropic SDK's own client options rather than reimplemented. Live API testing deferred to PR-14 (no UI in this PR to test through) — verified structurally instead (schema validation, client error paths) against the real exported code.
 
 ### PR-14: AI Workout Generation — single day
 
