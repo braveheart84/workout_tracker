@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import type { WorkoutSession } from "@/generated/prisma/client";
+import { startPlannedWorkoutAction } from "../actions";
 import { SessionForm } from "./session-form";
 import { BlocksManager } from "./blocks-manager";
 import { FinishWorkoutForm } from "./finish-workout-form";
@@ -57,6 +58,7 @@ export default async function WorkoutSessionPage({
 
   const defaultWeightUnit = user.unitSystem === "IMPERIAL" ? "LB" : "KG";
   const isInProgress = workoutSession.status === "IN_PROGRESS";
+  const isPlanned = workoutSession.status === "PLANNED";
 
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
@@ -87,6 +89,17 @@ export default async function WorkoutSessionPage({
 
         {isInProgress ? (
           <FinishWorkoutForm sessionId={workoutSession.id} />
+        ) : isPlanned ? (
+          <form
+            action={startPlannedWorkoutAction.bind(null, workoutSession.id)}
+          >
+            <button
+              type="submit"
+              className="bg-primary text-primary-foreground w-full rounded-md px-3 py-2 text-sm font-medium"
+            >
+              Start Workout
+            </button>
+          </form>
         ) : (
           <>
             <FeedbackSummary

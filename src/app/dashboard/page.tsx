@@ -26,6 +26,7 @@ export default async function DashboardPage() {
   });
 
   const inProgress = todaysSessions.find((s) => s.status === "IN_PROGRESS");
+  const planned = todaysSessions.find((s) => s.status === "PLANNED");
   const completed = todaysSessions.find((s) => s.status === "COMPLETED");
 
   return (
@@ -41,6 +42,16 @@ export default async function DashboardPage() {
             className="bg-primary text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
           >
             Continue Workout
+          </Link>
+        </div>
+      ) : planned ? (
+        <div className="space-y-2">
+          <p className="text-sm">You have a planned workout for today.</p>
+          <Link
+            href={`/workouts/${planned.id}`}
+            className="bg-primary text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
+          >
+            View & Start
           </Link>
         </div>
       ) : completed ? (
@@ -64,14 +75,22 @@ export default async function DashboardPage() {
       ) : (
         <div className="space-y-2">
           <p className="text-muted-foreground text-sm">No workout yet today.</p>
-          <form action={startAdHocWorkoutAction}>
-            <button
-              type="submit"
+          <div className="flex justify-center gap-2">
+            <Link
+              href="/generate"
               className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium"
             >
-              Start ad-hoc workout
-            </button>
-          </form>
+              Generate Workout
+            </Link>
+            <form action={startAdHocWorkoutAction}>
+              <button
+                type="submit"
+                className="border-input rounded-md border px-4 py-2 text-sm font-medium"
+              >
+                Start ad-hoc workout
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

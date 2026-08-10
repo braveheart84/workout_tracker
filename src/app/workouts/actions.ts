@@ -24,6 +24,20 @@ export async function startAdHocWorkoutAction() {
   redirect(`/workouts/${workoutSession.id}`);
 }
 
+export async function startPlannedWorkoutAction(id: string) {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  await prisma.workoutSession.updateMany({
+    where: { id, userId: session.user.id, status: "PLANNED" },
+    data: { status: "IN_PROGRESS", startedAt: new Date() },
+  });
+
+  revalidatePath(`/workouts/${id}`);
+}
+
 const sessionUpdateSchema = z.object({
   label: z
     .string()
