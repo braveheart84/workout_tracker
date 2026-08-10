@@ -12,6 +12,23 @@ import {
 
 const freeTextSchema = z.string().max(1000);
 
+// Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
+// a single-day suggestion can target any day from today through 6 days out.
+const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
+  .transform((v) => new Date(`${v}T00:00:00.000Z`))
+  .refine((d) => !Number.isNaN(d.getTime()), "Pick a valid date.")
+  .refine((d) => {
+    const now = new Date();
+    const todayUtc = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const maxUtc = new Date(todayUtc);
+    maxUtc.setUTCDate(maxUtc.getUTCDate() + 6);
+    return d >= todayUtc && d <= maxUtc;
+  }, "Pick a date within the next 7 days.");
+
 async function buildGenerationContext(userId: string) {
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
@@ -65,6 +82,7 @@ async function buildGenerationContext(userId: string) {
 
 function buildPrompt(
   freeText: string,
+  targetDate: Date,
   historyLines: string[],
   libraryLines: string[],
 ) {
@@ -76,7 +94,17 @@ function buildPrompt(
     "Avoid heavily repeating muscle groups the user trained in the last 1-2 days, if that history is available.",
   ].join(" ");
 
+  const targetDateLabel = targetDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
   const prompt = [
+    `This workout is for: ${targetDateLabel}.`,
+    "",
     freeText.trim()
       ? `User's request: ${freeText.trim()}`
       : "User's request: (none given - use their recent history to suggest something sensible)",
@@ -94,7 +122,7 @@ function buildPrompt(
 }
 
 export type GenerateFormState =
-  { error?: string; suggestion?: WorkoutSuggestion } | undefined;
+  { error?: string; suggestion?: WorkoutSuggestion; date?: string } | undefined;
 
 export async function generateWorkoutSuggestionAction(
   _prevState: GenerateFormState,
@@ -110,10 +138,25 @@ export async function generateWorkoutSuggestionAction(
   );
   const freeText = parsedFreeText.success ? parsedFreeText.data : "";
 
+  const dateInput = formData.get("date");
+  const parsedDate = dateSchema.safeParse(dateInput);
+  if (!parsedDate.success) {
+    return {
+      error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
+    };
+  }
+  const targetDate = parsedDate.data;
+  const dateIso = targetDate.toISOString().slice(0, 10);
+
   const { historyLines, libraryLines } = await buildGenerationContext(
     session.user.id,
   );
-  const { system, prompt } = buildPrompt(freeText, historyLines, libraryLines);
+  const { system, prompt } = buildPrompt(
+    freeText,
+    targetDate,
+    historyLines,
+    libraryLines,
+  );
 
   try {
     const suggestion = await requestStructuredOutput({
@@ -123,7 +166,7 @@ export async function generateWorkoutSuggestionAction(
       toolDescription:
         "Return a single day's suggested workout structure matching the schema.",
     });
-    return { suggestion };
+    return { suggestion, date: dateIso };
   } catch (error) {
     // PRD Section 8: any generation failure - a transient Claude API issue,
     // a malformed response, or a server misconfiguration alike - degrades
@@ -144,12 +187,13 @@ export async function generateWorkoutSuggestionAction(
 export async function persistWorkoutSuggestion(
   userId: string,
   suggestion: WorkoutSuggestion,
+  date: Date,
 ) {
   return prisma.$transaction(async (tx) => {
     const workoutSession = await tx.workoutSession.create({
       data: {
         userId,
-        date: new Date(),
+        date,
         status: "PLANNED",
         type: "STRENGTH",
         label: suggestion.label,
@@ -231,9 +275,17 @@ export async function acceptWorkoutSuggestionAction(
     return { error: "Invalid suggestion data." };
   }
 
+  const parsedDate = dateSchema.safeParse(formData.get("date"));
+  if (!parsedDate.success) {
+    return {
+      error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
+    };
+  }
+
   const newSessionId = await persistWorkoutSuggestion(
     session.user.id,
     parsed.data,
+    parsedDate.data,
   );
 
   redirect(`/workouts/${newSessionId}`);
