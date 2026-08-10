@@ -145,6 +145,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** "Generate Workout" flow for today only: free-text input, recent-history context assembly, one LLM-generated suggestion (blocks/exercises/target sets), review/edit/regenerate/accept UI; accepting creates a `planned` `WorkoutSession` pre-filled per 7.4.
 - **Deployable because:** additive entry point alongside the existing ad-hoc "Start Workout."
 - **PRD ref:** 7.2 (single-day subset).
+- **Status:** 🚧 Draft, blocked on a live API check — GitHub PR #20. No `ANTHROPIC_API_KEY` is available in the sandbox this was built in, so the real Claude call is unverified end-to-end; everything else (persistence, PLANNED-session UI, graceful-failure path) is verified against the real app. No `Set` rows are pre-created on accept - there's no `suggested_*` column yet to hold a target separately from an actual logged value (PR-19), so the session starts from an empty, loggable structure. `workouts/[id]` shows a PLANNED session read-only with a "Start Workout" button rather than the richer pre-start review screen, which is PR-15's job.
 
 ### PR-15: Workout review screen
 
