@@ -94,7 +94,10 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="flex gap-4 text-sm">
+      <div className="flex flex-wrap justify-center gap-4 text-sm">
+        <Link href="/generate" className="underline">
+          Generate Workout
+        </Link>
         <Link href="/history" className="underline">
           History
         </Link>
