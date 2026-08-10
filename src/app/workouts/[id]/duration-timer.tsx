@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WeightUnit } from "@/generated/prisma/client";
 import { addSetAction } from "./set-actions";
 import { useCountdown } from "@/lib/use-countdown";
@@ -11,6 +11,7 @@ import {
   requestNotificationPermission,
   requestWakeLock,
 } from "@/lib/timer-alerts";
+import { FloatingTimerBar } from "./floating-timer-bar";
 
 type PendingLog = {
   elapsedSeconds: number;
@@ -32,7 +33,7 @@ export function DurationTimer({
   const [targetSeconds, setTargetSeconds] = useState(60);
   const [weight, setWeight] = useState("");
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(defaultWeightUnit);
-  const [wakeLock, setWakeLock] = useState<WakeLockSentinel | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingLog, setPendingLog] = useState<PendingLog | null>(null);
@@ -49,8 +50,8 @@ export function DurationTimer({
     let cancelled = false;
 
     async function logSet() {
-      releaseWakeLock(wakeLock);
-      setWakeLock(null);
+      releaseWakeLock(wakeLockRef.current);
+      wakeLockRef.current = null;
       setSubmitting(true);
       setError(null);
 
@@ -83,12 +84,11 @@ export function DurationTimer({
     return () => {
       cancelled = true;
     };
-  }, [pendingLog, sessionId, workoutExerciseId, roundNumber, reset, wakeLock]);
+  }, [pendingLog, sessionId, workoutExerciseId, roundNumber, reset]);
 
   async function handleStart() {
     setError(null);
-    const lock = await requestWakeLock();
-    setWakeLock(lock);
+    wakeLockRef.current = await requestWakeLock();
     await requestNotificationPermission();
     start();
   }
@@ -145,7 +145,8 @@ export function DurationTimer({
   }
 
   return (
-    <div className="space-y-1">
+    <FloatingTimerBar>
+      <p className="font-medium">Timer</p>
       <p className="text-2xl font-semibold tabular-nums">
         {formatTime(secondsLeft)}
       </p>
@@ -168,6 +169,6 @@ export function DurationTimer({
       </div>
       {submitting && <p className="text-muted-foreground text-xs">Logging…</p>}
       {error && <p className="text-destructive text-xs">{error}</p>}
-    </div>
+    </FloatingTimerBar>
   );
 }
