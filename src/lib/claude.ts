@@ -40,6 +40,44 @@ export class ClaudeStructuredOutputError extends Error {
   }
 }
 
+// Claude's `strict: true` tool mode only enforces structural JSON Schema
+// keywords (type, properties, required, enum, items, additionalProperties,
+// anyOf) - value-range constraints make the request fail outright, e.g.
+// "For 'array' type, property 'maxItems' is not supported" and "For
+// 'integer' type, properties maximum, minimum are not supported". Strip
+// this whole class of keywords recursively from the wire schema; the Zod
+// schema itself still enforces them locally via schema.safeParse after the
+// call, so nothing is lost - Claude just isn't told about the bounds.
+const UNSUPPORTED_STRICT_KEYWORDS = new Set([
+  "minItems",
+  "maxItems",
+  "minimum",
+  "maximum",
+  "exclusiveMinimum",
+  "exclusiveMaximum",
+  "minLength",
+  "maxLength",
+  "multipleOf",
+]);
+
+function stripUnsupportedStrictKeywords(node: unknown): unknown {
+  if (Array.isArray(node)) {
+    return node.map(stripUnsupportedStrictKeywords);
+  }
+  if (node && typeof node === "object") {
+    const entries = Object.entries(node as Record<string, unknown>).filter(
+      ([key]) => !UNSUPPORTED_STRICT_KEYWORDS.has(key),
+    );
+    return Object.fromEntries(
+      entries.map(([key, value]) => [
+        key,
+        stripUnsupportedStrictKeywords(value),
+      ]),
+    );
+  }
+  return node;
+}
+
 /**
  * Asks Claude to produce output matching `schema`, via tool use (Claude is
  * forced to call a single tool whose input_schema is derived from the Zod
@@ -64,8 +102,12 @@ export async function requestStructuredOutput<T>({
 }): Promise<T> {
   const anthropic = getClient();
 
-  const inputSchema = z.toJSONSchema(schema) as Record<string, unknown>;
-  delete inputSchema.$schema;
+  const rawSchema = z.toJSONSchema(schema) as Record<string, unknown>;
+  delete rawSchema.$schema;
+  const inputSchema = stripUnsupportedStrictKeywords(rawSchema) as Record<
+    string,
+    unknown
+  >;
 
   let response;
   try {
@@ -79,6 +121,13 @@ export async function requestStructuredOutput<T>({
           name: TOOL_NAME,
           description: toolDescription,
           input_schema: inputSchema as Anthropic.Tool.InputSchema,
+          // Guarantees the API itself enforces the schema (required fields,
+          // nullability, array shapes) server-side, rather than relying on
+          // the model to freeform-honor it - without this, Claude has been
+          // observed omitting required fields or returning null instead of
+          // an empty/populated array on some calls, which schema.safeParse
+          // below would otherwise be the only thing catching.
+          strict: true,
         },
       ],
       tool_choice: { type: "tool", name: TOOL_NAME },
@@ -98,6 +147,14 @@ export async function requestStructuredOutput<T>({
 
   const parsed = schema.safeParse(toolUse.input);
   if (!parsed.success) {
+    // Log the raw payload alongside the validation error - the error alone
+    // says which fields were wrong, not what Claude actually sent, which is
+    // what's needed to tell a genuine model mistake apart from a bug in our
+    // own schema/prompt.
+    console.error(
+      "Claude tool_use input failed schema validation. Raw input:",
+      JSON.stringify(toolUse.input),
+    );
     throw new ClaudeStructuredOutputError(
       "Claude's response didn't match the expected shape.",
       { cause: parsed.error },
