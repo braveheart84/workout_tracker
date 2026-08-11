@@ -148,12 +148,20 @@ export async function addSetAction(
     return { error: parsed.error };
   }
 
+  // Snapshot whatever this exercise's plan/template targeted for this
+  // round, alongside what's actually being logged - null across the board
+  // for a manually-added exercise, which never had a target to snapshot.
   await prisma.set.create({
     data: {
       workoutExerciseId,
       roundNumber,
       setType: workoutExercise.exercise.defaultSetType,
       ...parsed.data,
+      suggestedReps: workoutExercise.targetReps,
+      suggestedDurationSeconds: workoutExercise.targetDurationSeconds,
+      suggestedDistanceMeters: workoutExercise.targetDistanceMeters,
+      suggestedWeight: workoutExercise.targetWeight,
+      suggestedWeightUnit: workoutExercise.targetWeightUnit,
     },
   });
 

@@ -91,6 +91,8 @@ export async function persistWorkoutStructure(
             targetReps: exercise.suggestedSet.reps,
             targetDurationSeconds: exercise.suggestedSet.durationSeconds,
             targetDistanceMeters: exercise.suggestedSet.distanceMeters,
+            targetWeight: exercise.suggestedSet.weight,
+            targetWeightUnit: exercise.suggestedSet.weightUnit,
           })),
         ),
       });

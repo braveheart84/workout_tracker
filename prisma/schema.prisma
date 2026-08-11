@@ -164,18 +164,23 @@ model WorkoutBlock {
 }
 
 // PRD Section 9 (WorkoutExercise) - target* fields carry the prescribed
-// reps/duration/distance from an AI-generated suggestion (PR-14) through to
-// logging time, so the user can see what they're aiming for each round.
-// They're null for manually-added exercises, which have no such target.
+// reps/duration/distance/weight from an AI-generated suggestion or template
+// (PR-14, PR-20) through to logging time, so the user can see what they're
+// aiming for each round. targetWeight/targetWeightUnit (PR-19) close a gap
+// where the suggestion's weight was silently dropped on accept, since there
+// was nowhere to keep it until now. All are null for a manually-added
+// exercise, which has no such target.
 model WorkoutExercise {
-  id                    String  @id @default(uuid())
-  blockId               String  @map("block_id")
-  exerciseId            String  @map("exercise_id")
+  id                    String      @id @default(uuid())
+  blockId               String      @map("block_id")
+  exerciseId            String      @map("exercise_id")
   order                 Int
-  noteForNextTime       String? @map("note_for_next_time")
-  targetReps            Int?    @map("target_reps")
-  targetDurationSeconds Int?    @map("target_duration_seconds")
-  targetDistanceMeters  Float?  @map("target_distance_meters")
+  noteForNextTime       String?     @map("note_for_next_time")
+  targetReps            Int?        @map("target_reps")
+  targetDurationSeconds Int?        @map("target_duration_seconds")
+  targetDistanceMeters  Float?      @map("target_distance_meters")
+  targetWeight          Float?      @map("target_weight")
+  targetWeightUnit      WeightUnit? @map("target_weight_unit")
 
   block    WorkoutBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
   exercise Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
@@ -185,20 +190,28 @@ model WorkoutExercise {
 }
 
 // PRD Section 9 (Set) - one set per round for a workout exercise, or more
-// if the user does extra sets within a round. `suggested_*` fields aren't
-// added yet - they're only meaningful once AI generation (7.2) exists to
-// populate them.
+// if the user does extra sets within a round. `suggested_*` (PR-19) is
+// stamped onto a new Set row at logging time from its WorkoutExercise's
+// target* fields, when that exercise came from a plan - a snapshot of what
+// was suggested for that specific round, preserved separately from what
+// actually got logged, so generation can later compare the two (7.2).
+// Null for a manually-added exercise, which had no suggestion to snapshot.
 model Set {
-  id                String      @id @default(uuid())
-  workoutExerciseId String      @map("workout_exercise_id")
-  roundNumber       Int         @map("round_number")
-  setType           SetType     @map("set_type")
-  reps              Int?
-  weight            Float?
-  weightUnit        WeightUnit? @map("weight_unit")
-  durationSeconds   Int?        @map("duration_seconds")
-  distanceMeters    Float?      @map("distance_meters")
-  createdAt         DateTime    @default(now()) @map("created_at")
+  id                       String      @id @default(uuid())
+  workoutExerciseId        String      @map("workout_exercise_id")
+  roundNumber              Int         @map("round_number")
+  setType                  SetType     @map("set_type")
+  reps                     Int?
+  weight                   Float?
+  weightUnit               WeightUnit? @map("weight_unit")
+  durationSeconds          Int?        @map("duration_seconds")
+  distanceMeters           Float?      @map("distance_meters")
+  suggestedReps            Int?        @map("suggested_reps")
+  suggestedWeight          Float?      @map("suggested_weight")
+  suggestedWeightUnit      WeightUnit? @map("suggested_weight_unit")
+  suggestedDurationSeconds Int?        @map("suggested_duration_seconds")
+  suggestedDistanceMeters  Float?      @map("suggested_distance_meters")
+  createdAt                DateTime    @default(now()) @map("created_at")
 
   workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
 
