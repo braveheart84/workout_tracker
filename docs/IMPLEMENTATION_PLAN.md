@@ -204,6 +204,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** generation shortcuts — "same as last week" (`WorkoutPlan.based_on_session_id`) and a focus-area selector (strength/cardio/HIIT/mobility, `focus_tags`) — alongside the existing free-text input.
 - **Deployable because:** additive options on the existing generation form.
 - **PRD ref:** 7.2 (repeat/focus shortcuts); Section 9 (`focus_tags`, `based_on_session_id`).
+- **Status:** ✅ Shipped — GitHub PR #40. Multi-day generation only (single-day generation already has its own template shortcut from PR-20; these two are scoped to the flow whose `WorkoutPlan` row can actually carry them). "Repeat a previous workout" fetches the chosen past session's full block/exercise/target breakdown and feeds it into the prompt as a structural baseline to vary across the requested days, not copy verbatim. Live-tested against the real Claude API: a baseline session's exercises were reused with sensible incremental progression across a 2-day plan, and requesting the "Mobility" focus area alone produced an all-mobility-themed session, both with rationale explicitly citing the shortcut used.
 
 ---
 
