@@ -39,7 +39,7 @@ export function BlocksManager({
   const sortedBlocks = [...blocks].sort((a, b) => a.order - b.order);
 
   return (
-    <div className="space-y-4">
+    <div id="blocks" className="scroll-mt-4 space-y-4">
       <h2 className="text-sm font-medium">Blocks</h2>
       {sortedBlocks.length === 0 ? (
         <p className="text-muted-foreground text-sm">No blocks yet.</p>
