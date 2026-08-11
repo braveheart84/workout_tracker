@@ -185,6 +185,7 @@ function buildMultiDayPrompt(
     "Prefer reusing the user's existing exercise names from their library when a suitable match exists, rather than inventing near-duplicate names.",
     "Keep each day's workout realistic in scope: 1-6 blocks, each with 1-5 exercises, sensible round counts (1-5), and sensible rest periods.",
     "Avoid heavily repeating muscle groups the user trained in the 1-2 days before the start date, if that history is available.",
+    "Each day's label should describe the workout itself (e.g. its muscle focus or theme), not the day number or date - the app already displays those separately.",
   ].join(" ");
 
   const startDateLabel = startDate.toLocaleDateString("en-US", {
