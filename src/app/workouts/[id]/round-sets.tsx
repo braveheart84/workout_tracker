@@ -6,6 +6,7 @@ import type {
 import { SetRow } from "./set-row";
 import { AddSetForm } from "./add-set-form";
 import { DurationLogging } from "./duration-logging";
+import { formatTarget } from "@/lib/format-set-summary";
 
 export function RoundSets({
   sessionId,
@@ -68,6 +69,9 @@ export function RoundSets({
                   />
                 ))}
               </ul>
+            )}
+            {disabled && roundSets.length === 0 && target != null && (
+              <p>Target: {formatTarget(setType, target)}</p>
             )}
             {!disabled && setType === "DURATION" && (
               <DurationLogging

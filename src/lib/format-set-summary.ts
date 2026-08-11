@@ -16,3 +16,17 @@ export function formatSetSummary(set: SetSummaryInput) {
   if (set.setType === "DURATION") return `${set.durationSeconds}s${weightPart}`;
   return `${set.distanceMeters}m${weightPart}`;
 }
+
+// Same units-per-setType formatting as formatSetSummary, but for a bare
+// prescribed value (no weight) - used to show a round's target when there's
+// no logging form to display it inline with, e.g. reviewing a planned
+// workout before starting it.
+export function formatTarget(
+  setType: SetSummaryInput["setType"],
+  target: number | null,
+) {
+  if (target == null) return null;
+  if (setType === "REPS") return `${target} reps`;
+  if (setType === "DURATION") return `${target}s`;
+  return `${target}m`;
+}

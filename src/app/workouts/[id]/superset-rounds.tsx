@@ -7,6 +7,7 @@ import { SetRow } from "./set-row";
 import { AddSetForm } from "./add-set-form";
 import { DurationLogging } from "./duration-logging";
 import type { CurrentPosition } from "./blocks-manager";
+import { formatTarget } from "@/lib/format-set-summary";
 
 // Renders a superset block's rounds grouped by round number rather than by
 // exercise, so e.g. squat's round 1 and deadlift's round 1 sit next to each
@@ -89,6 +90,9 @@ export function SupersetRounds({
                         />
                       ))}
                     </ul>
+                  )}
+                  {disabled && roundSets.length === 0 && target != null && (
+                    <p>Target: {formatTarget(setType, target)}</p>
                   )}
                   {!disabled && setType === "DURATION" && (
                     <DurationLogging
