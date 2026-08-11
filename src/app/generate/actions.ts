@@ -17,6 +17,11 @@ const feedbackSchema = z
   .trim()
   .min(1, "Describe what you'd like to change.")
   .max(1000);
+const sourceTextSchema = z
+  .string()
+  .trim()
+  .min(1, "Paste a workout to import.")
+  .max(6000, "That's too long to import at once - try trimming it down.");
 
 // Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
 // today through 6 days out, shared by both the single-day date field and
@@ -67,11 +72,24 @@ const datesArraySchema = z
     return dates.every((d) => d >= todayUtc && d <= maxUtc);
   }, "Pick days within the next 7 days.");
 
+async function getLibraryLines(userId: string) {
+  const exercises = await prisma.exercise.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+  });
+  return exercises.map(
+    (exercise) =>
+      `- ${exercise.name} (${exercise.defaultSetType.toLowerCase()}${
+        exercise.muscleGroup ? `, ${exercise.muscleGroup}` : ""
+      })`,
+  );
+}
+
 async function buildGenerationContext(userId: string) {
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-  const [recentSessions, exercises] = await Promise.all([
+  const [recentSessions, libraryLines] = await Promise.all([
     prisma.workoutSession.findMany({
       where: { userId, status: "COMPLETED", date: { gte: fourteenDaysAgo } },
       orderBy: { date: "desc" },
@@ -81,7 +99,7 @@ async function buildGenerationContext(userId: string) {
         },
       },
     }),
-    prisma.exercise.findMany({ where: { userId }, orderBy: { name: "asc" } }),
+    getLibraryLines(userId),
   ]);
 
   const historyLines = recentSessions.map((workoutSession) => {
@@ -107,13 +125,6 @@ async function buildGenerationContext(userId: string) {
     ].filter(Boolean);
     return `- ${parts.join(" | ")}`;
   });
-
-  const libraryLines = exercises.map(
-    (exercise) =>
-      `- ${exercise.name} (${exercise.defaultSetType.toLowerCase()}${
-        exercise.muscleGroup ? `, ${exercise.muscleGroup}` : ""
-      })`,
-  );
 
   return { historyLines, libraryLines };
 }
@@ -187,6 +198,48 @@ function buildRevisionPrompt(
     `Current suggested workout:\n${JSON.stringify(currentSuggestion)}`,
     "",
     `Requested change: ${feedback}`,
+    "",
+    libraryLines.length > 0
+      ? `User's existing exercise library:\n${libraryLines.join("\n")}`
+      : "User's existing exercise library: empty.",
+  ].join("\n");
+
+  return { system, prompt };
+}
+
+// Converts a workout the user already has from an external source (a coach,
+// an app, a screenshot transcription) into the app's schema. Deliberately
+// excludes recent workout history from the prompt and tells the model not
+// to apply its own training-variety judgment - the whole point is to
+// faithfully transcribe what the user already decided on, not second-guess
+// it the way buildPrompt's generation intentionally does.
+function buildImportPrompt(
+  sourceText: string,
+  targetDate: Date,
+  libraryLines: string[],
+) {
+  const system = [
+    "You are converting a workout the user pasted in from an external source (a coach, an app, a website, a screenshot transcription) into this app's structured schema.",
+    "Do not invent a new workout and do not apply your own judgment about training variety, muscle group balance, or recent training history - faithfully convert the given text as closely as the schema allows, preserving the user's own programming choices.",
+    "Preserve the source's structure and order: represent each distinct section (e.g. warm-up, main working sets, a finisher circuit, core work) as its own block, in the order it appears in the source.",
+    "A section that's just a sequential list of exercises done once (e.g. a warm-up) is a block with roundCount 1. A section explicitly described as repeating for multiple rounds/sets is a block with that roundCount.",
+    "When the source gives a range (e.g. '10-12 reps', 'rest 60-75 sec'), pick a single representative value within that range for the schema's numeric fields - do not average ranges across unrelated exercises.",
+    "Only include a weight/duration/distance target if the source actually specifies one for that exercise; otherwise leave it absent rather than inventing a number.",
+    "Prefer reusing the user's existing exercise names from their library when a suitable match exists, rather than inventing near-duplicate names, but never change what the exercise actually is to force a match.",
+  ].join(" ");
+
+  const targetDateLabel = targetDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+  const prompt = [
+    `This converted workout is for: ${targetDateLabel}.`,
+    "",
+    `Workout text to convert:\n${sourceText}`,
     "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
@@ -298,6 +351,67 @@ export async function generateWorkoutSuggestionAction(
     return {
       error:
         "Couldn't generate a workout right now. Try again, or start one manually.",
+    };
+  }
+}
+
+// Converts a workout pasted in from elsewhere (a coach, an app, a website)
+// into the app's schema, per user request: generation's own "avoid
+// repeating recent muscle groups" heuristic was overriding an explicitly
+// pasted plan instead of just transcribing it. Returns the same shape as
+// generateWorkoutSuggestionAction so it plugs into the same review/revise/
+// accept UI - only the prompt (buildImportPrompt, no history context) and
+// input (raw text instead of free-form notes) differ.
+export async function importWorkoutTextAction(
+  _prevState: GenerateFormState,
+  formData: FormData,
+): Promise<GenerateFormState> {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const parsedSourceText = sourceTextSchema.safeParse(
+    formData.get("sourceText"),
+  );
+  if (!parsedSourceText.success) {
+    return {
+      error:
+        parsedSourceText.error.issues[0]?.message ??
+        "Paste a workout to import.",
+    };
+  }
+
+  const parsedDate = dateSchema.safeParse(formData.get("date"));
+  if (!parsedDate.success) {
+    return {
+      error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
+    };
+  }
+  const targetDate = parsedDate.data;
+  const dateIso = targetDate.toISOString().slice(0, 10);
+
+  const libraryLines = await getLibraryLines(session.user.id);
+  const { system, prompt } = buildImportPrompt(
+    parsedSourceText.data,
+    targetDate,
+    libraryLines,
+  );
+
+  try {
+    const suggestion = await requestStructuredOutput({
+      system,
+      prompt,
+      schema: workoutSuggestionSchema,
+      toolDescription:
+        "Return the converted workout structure matching the schema, faithfully transcribing the pasted source.",
+    });
+    return { suggestion, date: dateIso };
+  } catch (error) {
+    console.error("Workout import failed:", error);
+    return {
+      error:
+        "Couldn't convert that workout right now. Try again, or simplify the pasted text.",
     };
   }
 }
