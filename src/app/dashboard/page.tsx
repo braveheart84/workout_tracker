@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { startAdHocWorkoutAction } from "@/app/workouts/actions";
+import { SkippedDayBanner } from "./skipped-day-banner";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -17,22 +18,35 @@ export default async function DashboardPage() {
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
 
-  const todaysSessions = await prisma.workoutSession.findMany({
-    where: {
-      userId: session.user.id,
-      date: { gte: todayStart, lt: tomorrowStart },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [todaysSessions, skippedSessions] = await Promise.all([
+    prisma.workoutSession.findMany({
+      where: {
+        userId: session.user.id,
+        date: { gte: todayStart, lt: tomorrowStart },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.workoutSession.findMany({
+      where: {
+        userId: session.user.id,
+        status: "PLANNED",
+        date: { lt: todayStart },
+      },
+      orderBy: { date: "asc" },
+    }),
+  ]);
 
   const inProgress = todaysSessions.find((s) => s.status === "IN_PROGRESS");
   const planned = todaysSessions.find((s) => s.status === "PLANNED");
   const completed = todaysSessions.find((s) => s.status === "COMPLETED");
+  const todayIso = todayStart.toISOString().slice(0, 10);
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
       <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
       <p className="text-muted-foreground">Logged in as {session.user.email}</p>
+
+      <SkippedDayBanner sessions={skippedSessions} todayIso={todayIso} />
 
       {inProgress ? (
         <div className="space-y-2">
@@ -97,6 +111,9 @@ export default async function DashboardPage() {
       <div className="flex flex-wrap justify-center gap-4 text-sm">
         <Link href="/generate" className="underline">
           Generate Workout
+        </Link>
+        <Link href="/week" className="underline">
+          Week view
         </Link>
         <Link href="/history" className="underline">
           History
