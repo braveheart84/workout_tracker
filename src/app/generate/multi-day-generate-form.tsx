@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { WorkoutSuggestion } from "@/lib/workout-suggestion-schema";
+import { FOCUS_AREAS, FOCUS_AREA_LABELS } from "@/lib/focus-area";
 import {
   generateWorkoutPlanAction,
   type GeneratePlanFormState,
@@ -39,7 +40,13 @@ function formatDateLabel(dateIso: string) {
   });
 }
 
-export function MultiDayGenerateForm({ todayIso }: { todayIso: string }) {
+export function MultiDayGenerateForm({
+  todayIso,
+  baselineSessions,
+}: {
+  todayIso: string;
+  baselineSessions: { id: string; dateIso: string; label: string | null }[];
+}) {
   const [planState, planAction, planPending] = useActionState<
     GeneratePlanFormState,
     FormData
@@ -166,6 +173,42 @@ export function MultiDayGenerateForm({ todayIso }: { todayIso: string }) {
             className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
           />
         </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">
+            Focus area (optional, pick any)
+          </label>
+          <div className="flex flex-wrap gap-3 text-sm">
+            {FOCUS_AREAS.map((focusArea) => (
+              <label key={focusArea} className="flex items-center gap-1">
+                <input type="checkbox" name="focusTags" value={focusArea} />
+                {FOCUS_AREA_LABELS[focusArea]}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {baselineSessions.length > 0 && (
+          <div className="space-y-1">
+            <label htmlFor="basedOnSessionId" className="text-sm font-medium">
+              Repeat a previous workout (optional)
+            </label>
+            <select
+              id="basedOnSessionId"
+              name="basedOnSessionId"
+              defaultValue=""
+              className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+            >
+              <option value="">Don&apos;t base this on a past workout</option>
+              {baselineSessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label || "Workout"} — {formatDateLabel(s.dateIso)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {planState?.error && (
           <p className="text-destructive text-sm">{planState.error}</p>
         )}

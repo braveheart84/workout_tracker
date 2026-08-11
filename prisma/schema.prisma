@@ -43,6 +43,15 @@ enum WeightUnit {
   LB
 }
 
+// PRD 7.2's focus-area shortcut (PR-21): steers what kind of session(s) the
+// LLM proposes without dictating exact exercises.
+enum FocusArea {
+  STRENGTH
+  CARDIO
+  HIIT
+  MOBILITY
+}
+
 // PRD Section 9 (User)
 model User {
   id               String     @id @default(uuid())
@@ -108,16 +117,21 @@ model WorkoutSession {
 
 // PRD Section 9 (WorkoutPlan) - groups the batch of sessions generated
 // together by one multi-day generation request (PR-16); a single-day
-// generation (PR-14) never creates one of these. `focus_tags` and
-// `based_on_session_id` from the PRD's schema sketch aren't added yet -
-// unused until PR-21's repeat-last-week/focus-area shortcuts.
+// generation (PR-14) never creates one of these. `focusTags` and
+// `basedOnSessionId` (PR-21) are the multi-day form's two generation
+// shortcuts alongside free text - `basedOnSessionId` is provenance only,
+// not a FK (mirrors WorkoutTemplate.createdFromSessionId), since the
+// baseline session isn't deletable today and a plan is meant to outlive it
+// either way.
 model WorkoutPlan {
-  id           String   @id @default(uuid())
-  userId       String   @map("user_id")
-  startDate    DateTime @map("start_date") @db.Date
-  numDays      Int      @map("num_days")
-  sourcePrompt String?  @map("source_prompt")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id               String      @id @default(uuid())
+  userId           String      @map("user_id")
+  startDate        DateTime    @map("start_date") @db.Date
+  numDays          Int         @map("num_days")
+  sourcePrompt     String?     @map("source_prompt")
+  focusTags        FocusArea[] @map("focus_tags")
+  basedOnSessionId String?     @map("based_on_session_id")
+  createdAt        DateTime    @default(now()) @map("created_at")
 
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   workoutSessions WorkoutSession[]
@@ -134,7 +148,8 @@ model WorkoutPlan {
 // path needed. `createdFromSessionId` is provenance only, not a FK - the
 // source session isn't deletable today and a template is meant to outlive
 // it either way. `focus_tags` from the PRD's schema sketch isn't added yet -
-// unused until PR-21's focus-area shortcut.
+// PR-21 only adds it to WorkoutPlan, since tagging a saved template's own
+// focus area is a separate, unrequested organizational feature.
 model WorkoutTemplate {
   id                   String   @id @default(uuid())
   userId               String   @map("user_id")

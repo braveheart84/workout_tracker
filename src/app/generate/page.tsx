@@ -54,6 +54,27 @@ export default async function GeneratePage({
       : [];
   });
 
+  // PRD 7.2: "repeat a previous workout... regenerates using a specific
+  // past session... as the baseline" - multi-day only (see
+  // multi-day-generate-form.tsx). Completed sessions from the last 60 days,
+  // since a still-planned/in-progress session has no real record to repeat.
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+  const baselineSessionRows = await prisma.workoutSession.findMany({
+    where: {
+      userId: session.user.id,
+      status: "COMPLETED",
+      date: { gte: sixtyDaysAgo },
+    },
+    orderBy: { date: "desc" },
+    select: { id: true, date: true, label: true },
+  });
+  const baselineSessions = baselineSessionRows.map((s) => ({
+    id: s.id,
+    dateIso: s.date.toISOString().slice(0, 10),
+    label: s.label,
+  }));
+
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
       <div className="w-full max-w-lg space-y-6">
@@ -70,6 +91,7 @@ export default async function GeneratePage({
           maxIso={maxIso}
           defaultDateIso={defaultDateIso}
           templates={templates}
+          baselineSessions={baselineSessions}
         />
       </div>
     </main>

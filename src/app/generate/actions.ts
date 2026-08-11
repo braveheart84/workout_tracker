@@ -11,6 +11,8 @@ import {
   multiDaySuggestionSchema,
   type WorkoutSuggestion,
 } from "@/lib/workout-suggestion-schema";
+import { FOCUS_AREAS } from "@/lib/focus-area";
+import { formatTarget } from "@/lib/format-set-summary";
 
 const freeTextSchema = z.string().max(1000);
 const feedbackSchema = z
@@ -23,6 +25,10 @@ const sourceTextSchema = z
   .trim()
   .min(1, "Paste a workout to import.")
   .max(6000, "That's too long to import at once - try trimming it down.");
+
+// PRD 7.2's focus-area shortcut: 0 or more of the fixed set, alongside the
+// existing free text rather than instead of it.
+const focusTagsSchema = z.array(z.enum(FOCUS_AREAS)).max(FOCUS_AREAS.length);
 
 // Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
 // today through 6 days out, shared by both the single-day date field and
@@ -316,6 +322,66 @@ async function buildGenerationContext(userId: string) {
   };
 }
 
+function formatExerciseTarget(we: {
+  targetReps: number | null;
+  targetDurationSeconds: number | null;
+  targetDistanceMeters: number | null;
+  targetWeight: number | null;
+  targetWeightUnit: "KG" | "LB" | null;
+  exercise: { name: string; defaultSetType: "REPS" | "DURATION" | "DISTANCE" };
+}) {
+  const value =
+    we.exercise.defaultSetType === "REPS"
+      ? we.targetReps
+      : we.exercise.defaultSetType === "DURATION"
+        ? we.targetDurationSeconds
+        : we.targetDistanceMeters;
+  const target = formatTarget(we.exercise.defaultSetType, value);
+  const weight =
+    we.targetWeight != null
+      ? `${we.targetWeight}${(we.targetWeightUnit ?? "KG").toLowerCase()}`
+      : null;
+  const detail = [target, weight].filter(Boolean).join(" @ ");
+  return detail ? `${we.exercise.name} (${detail})` : we.exercise.name;
+}
+
+// PRD 7.2: "repeat a previous workout: 'same as last week' - regenerates
+// using a specific past session... as the baseline." A fuller block/
+// exercise breakdown than historyLines' one-line-per-session summary, since
+// this is the actual structure the new plan should vary around, not just
+// context. Ownership-checked, since the id comes straight from client
+// formData - returns null for a missing/foreign session, treated the same
+// as "no baseline given" rather than an error, since regenerating without
+// one is a reasonable fallback.
+async function getBaselineSessionLines(userId: string, sessionId: string) {
+  const baseline = await prisma.workoutSession.findFirst({
+    where: { id: sessionId, userId },
+    include: {
+      blocks: {
+        orderBy: { order: "asc" },
+        include: {
+          workoutExercises: {
+            orderBy: { order: "asc" },
+            include: { exercise: true },
+          },
+        },
+      },
+    },
+  });
+  if (!baseline) return null;
+
+  const blockLines = baseline.blocks.map((block) => {
+    const exerciseParts = block.workoutExercises.map(formatExerciseTarget);
+    return `  - ${block.roundCount} round${block.roundCount === 1 ? "" : "s"}${block.restSeconds ? `, ${block.restSeconds}s rest` : ""}: ${exerciseParts.join(", ")}`;
+  });
+
+  return {
+    label: baseline.label || "Workout",
+    dateIso: baseline.date.toISOString().slice(0, 10),
+    lines: blockLines,
+  };
+}
+
 function buildPrompt(
   freeText: string,
   targetDate: Date,
@@ -455,6 +521,8 @@ function buildMultiDayPrompt(
   libraryLines: string[],
   difficultyTrendLine: string | null,
   performanceDeltaLines: string[],
+  focusTags: string[],
+  baseline: { label: string; dateIso: string; lines: string[] } | null,
 ) {
   const numDays = dates.length;
   const system = [
@@ -467,6 +535,8 @@ function buildMultiDayPrompt(
     "Each day's label should describe the workout itself (e.g. its muscle focus or theme), not the day number or date - the app already displays those separately.",
     "If a recent difficulty-rating trend is given, use it to adjust intensity across the whole plan: a trend toward easy ratings means nudge load/volume/pace up from what's typical for this user, a trend toward hard ratings means ease it back, and an about-right trend means keep a similar intensity.",
     "If suggested-vs-actual performance is given for a specific exercise, use it to calibrate that exercise's own target ahead of the general difficulty trend: running ahead of its suggested target means nudge that exercise's target up, falling short means ease it back, and roughly matching means keep it about the same.",
+    "If one or more focus areas are given, steer the kind of session(s) you propose toward them (e.g. more strength-style blocks for 'strength', more continuous/cardio work for 'cardio', short-rest circuits for 'HIIT', stretching/control work for 'mobility') without dictating the exact exercises chosen.",
+    "If a baseline workout is given, the user wants this plan to follow its structure and exercise choices as a starting point - reuse its exercises and block shape where sensible, varied and repeated across the requested days as fits the day count, and adjusted per any difficulty-trend/performance-delta context above. Don't just copy it verbatim for every day.",
   ].join(" ");
 
   const dateLines = dates.map((date, index) => {
@@ -486,6 +556,14 @@ function buildMultiDayPrompt(
     freeText.trim()
       ? `User's request: ${freeText.trim()}`
       : "User's request: (none given - use their recent history to suggest something sensible)",
+    "",
+    focusTags.length > 0
+      ? `Requested focus area(s): ${focusTags.join(", ")}`
+      : "Requested focus area(s): none given.",
+    "",
+    baseline
+      ? `Baseline workout to repeat/vary (from ${baseline.dateIso}, "${baseline.label}"):\n${baseline.lines.join("\n")}`
+      : "Baseline workout to repeat: none given.",
     "",
     historyLines.length > 0
       ? `Recent workout history (last 14 days, most recent first):\n${historyLines.join("\n")}`
@@ -678,6 +756,20 @@ export async function generateWorkoutPlanAction(
   }
   const dates = parsedDates.data;
 
+  const parsedFocusTags = focusTagsSchema.safeParse(
+    formData.getAll("focusTags"),
+  );
+  const focusTags = parsedFocusTags.success ? parsedFocusTags.data : [];
+
+  const rawBasedOnSessionId = formData.get("basedOnSessionId");
+  const basedOnSessionId =
+    typeof rawBasedOnSessionId === "string" && rawBasedOnSessionId.trim()
+      ? rawBasedOnSessionId.trim()
+      : null;
+  const baseline = basedOnSessionId
+    ? await getBaselineSessionLines(session.user.id, basedOnSessionId)
+    : null;
+
   const {
     historyLines,
     libraryLines,
@@ -691,6 +783,8 @@ export async function generateWorkoutPlanAction(
     libraryLines,
     difficultyTrendLine,
     performanceDeltaLines,
+    focusTags,
+    baseline,
   );
 
   try {
@@ -716,6 +810,11 @@ export async function generateWorkoutPlanAction(
         startDate: dates[0],
         numDays: dates.length,
         sourcePrompt: freeText.trim() || null,
+        focusTags,
+        // Only persisted once a baseline was actually found and used -
+        // a stray/foreign id (already dropped by getBaselineSessionLines
+        // returning null) shouldn't be recorded as if it were applied.
+        basedOnSessionId: baseline ? basedOnSessionId : null,
       },
     });
 
