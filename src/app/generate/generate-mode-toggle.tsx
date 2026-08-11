@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { GenerateForm } from "./generate-form";
 import { MultiDayGenerateForm } from "./multi-day-generate-form";
+import { ImportWorkoutForm } from "./import-workout-form";
 
-// PRD 7.2: "chooses a scope: today only, or a range of days" - a simple
-// client-side toggle between the two existing/new forms, no server
-// round-trip needed to switch.
+// PRD 7.2: "chooses a scope: today only, or a range of days" - plus a third
+// mode, importing a workout from elsewhere rather than generating one, per
+// user request. A simple client-side toggle between the three forms, no
+// server round-trip needed to switch.
 export function GenerateModeToggle({
   todayIso,
   maxIso,
@@ -16,11 +18,11 @@ export function GenerateModeToggle({
   maxIso: string;
   defaultDateIso: string;
 }) {
-  const [mode, setMode] = useState<"single" | "multi">("single");
+  const [mode, setMode] = useState<"single" | "multi" | "import">("single");
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-3 text-sm">
+      <div className="flex flex-wrap gap-3 text-sm">
         <button
           type="button"
           onClick={() => setMode("single")}
@@ -43,6 +45,17 @@ export function GenerateModeToggle({
         >
           Multiple days
         </button>
+        <button
+          type="button"
+          onClick={() => setMode("import")}
+          className={
+            mode === "import"
+              ? "font-semibold underline"
+              : "text-muted-foreground underline"
+          }
+        >
+          Paste a workout
+        </button>
       </div>
       {mode === "single" ? (
         <GenerateForm
@@ -50,8 +63,14 @@ export function GenerateModeToggle({
           maxIso={maxIso}
           defaultDateIso={defaultDateIso}
         />
-      ) : (
+      ) : mode === "multi" ? (
         <MultiDayGenerateForm todayIso={todayIso} />
+      ) : (
+        <ImportWorkoutForm
+          todayIso={todayIso}
+          maxIso={maxIso}
+          defaultDateIso={defaultDateIso}
+        />
       )}
     </div>
   );
