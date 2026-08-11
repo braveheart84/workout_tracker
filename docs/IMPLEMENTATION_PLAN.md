@@ -153,6 +153,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** the pre-start review screen (block/exercise/target summary) shown when opening a planned day, with "Start Workout" as the primary action.
 - **Deployable because:** an additional screen in the existing planned-workout path.
 - **PRD ref:** 7.3 (review screen).
+- **Status:** ✅ Shipped — GitHub PR #30. Most of this scope already existed by accident: `/workouts/[id]` already rendered the block/exercise structure read-only for a `PLANNED` session with "Start Workout" as the primary CTA (from PR-14's `workouts/[id]` page plus later polish). Gap-checked and found one real gap - target reps/duration/distance weren't visible at all when reviewing, since that hint only rendered inside the interactive logging form, hidden while the session isn't editable - closed by rendering a plain "Target: N reps/Ns/Nm" line per round instead.
 
 ### PR-16: Multi-day generation
 
