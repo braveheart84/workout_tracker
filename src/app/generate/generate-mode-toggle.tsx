@@ -45,7 +45,7 @@ export function GenerateModeToggle({
       {mode === "single" ? (
         <GenerateForm todayIso={todayIso} maxIso={maxIso} />
       ) : (
-        <MultiDayGenerateForm />
+        <MultiDayGenerateForm todayIso={todayIso} />
       )}
     </div>
   );

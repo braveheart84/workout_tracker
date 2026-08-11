@@ -18,29 +18,54 @@ const feedbackSchema = z
   .min(1, "Describe what you'd like to change.")
   .max(1000);
 
-// PRD 7.2: a range request asks "how many days (1-7)".
-const numDaysSchema = z.coerce
-  .number()
-  .int()
-  .min(1, "Pick between 1 and 7 days.")
-  .max(7, "Pick between 1 and 7 days.");
-
 // Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
-// a single-day suggestion can target any day from today through 6 days out.
+// today through 6 days out, shared by both the single-day date field and
+// the multi-day dates array below.
+function getGenerationWindow() {
+  const now = new Date();
+  const todayUtc = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const maxUtc = new Date(todayUtc);
+  maxUtc.setUTCDate(maxUtc.getUTCDate() + 6);
+  return { todayUtc, maxUtc };
+}
+
 const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
   .transform((v) => new Date(`${v}T00:00:00.000Z`))
   .refine((d) => !Number.isNaN(d.getTime()), "Pick a valid date.")
   .refine((d) => {
-    const now = new Date();
-    const todayUtc = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    const maxUtc = new Date(todayUtc);
-    maxUtc.setUTCDate(maxUtc.getUTCDate() + 6);
+    const { todayUtc, maxUtc } = getGenerationWindow();
     return d >= todayUtc && d <= maxUtc;
   }, "Pick a date within the next 7 days.");
+
+// PRD 7.2's "range of days" scope, refined per user feedback after PR-16's
+// first cut: rather than a single day count implying N *consecutive* days,
+// the user picks which specific day(s) within the next week to generate
+// for - either by count (auto-spaced with rest days between, see
+// SPACED_OFFSETS_BY_COUNT client-side) or by checking exact days on a
+// calendar. Either way, the client resolves that down to a concrete list of
+// ISO dates and this is what actually gets validated server-side.
+const datesArraySchema = z
+  .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick valid days."))
+  .min(1, "Pick at least 1 day.")
+  .max(7, "Pick at most 7 days.")
+  .refine((arr) => new Set(arr).size === arr.length, "Duplicate day selected.")
+  .transform((arr) =>
+    arr
+      .map((v) => new Date(`${v}T00:00:00.000Z`))
+      .sort((a, b) => a.getTime() - b.getTime()),
+  )
+  .refine(
+    (dates) => dates.every((d) => !Number.isNaN(d.getTime())),
+    "Pick valid days.",
+  )
+  .refine((dates) => {
+    const { todayUtc, maxUtc } = getGenerationWindow();
+    return dates.every((d) => d >= todayUtc && d <= maxUtc);
+  }, "Pick days within the next 7 days.");
 
 async function buildGenerationContext(userId: string) {
   const fourteenDaysAgo = new Date();
@@ -173,31 +198,34 @@ function buildRevisionPrompt(
 
 function buildMultiDayPrompt(
   freeText: string,
-  startDate: Date,
-  numDays: number,
+  dates: Date[],
   historyLines: string[],
   libraryLines: string[],
 ) {
+  const numDays = dates.length;
   const system = [
     "You are a fitness coaching assistant inside a workout tracking app.",
-    `Generate a ${numDays}-day workout plan as a structured suggestion matching the provided tool schema - exactly ${numDays} entries in "days", one per day in order starting from the given start date.`,
-    "Vary the plan sensibly across the days: avoid repeating the same muscle group on consecutive days, and mix intensity/session focus where the user's request or history suggests variety.",
+    `Generate a workout plan as a structured suggestion matching the provided tool schema - exactly ${numDays} entries in "days", one per listed date below, in the same order.`,
+    "The listed dates are the days the user has chosen to work out - there may or may not be a rest day between any given pair, which you can tell from the calendar dates themselves. Vary the plan sensibly: avoid repeating the same muscle group between two listed days with no gap between them, and use bigger gaps for more overlap if that suits the user's request.",
     "Prefer reusing the user's existing exercise names from their library when a suitable match exists, rather than inventing near-duplicate names.",
     "Keep each day's workout realistic in scope: 1-6 blocks, each with 1-5 exercises, sensible round counts (1-5), and sensible rest periods.",
-    "Avoid heavily repeating muscle groups the user trained in the 1-2 days before the start date, if that history is available.",
+    "Avoid heavily repeating muscle groups the user trained in the 1-2 days before the first listed date, if that history is available.",
     "Each day's label should describe the workout itself (e.g. its muscle focus or theme), not the day number or date - the app already displays those separately.",
   ].join(" ");
 
-  const startDateLabel = startDate.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
+  const dateLines = dates.map((date, index) => {
+    const label = date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+    return `${index + 1}. ${label}`;
   });
 
   const prompt = [
-    `This plan starts on: ${startDateLabel}, for ${numDays} consecutive day${numDays === 1 ? "" : "s"}.`,
+    `Generate workouts for these ${numDays} chosen day${numDays === 1 ? "" : "s"}, in order:\n${dateLines.join("\n")}`,
     "",
     freeText.trim()
       ? `User's request: ${freeText.trim()}`
@@ -279,20 +307,22 @@ export type GeneratePlanFormState =
       error?: string;
       days?: WorkoutSuggestion[];
       planId?: string;
-      startIso?: string;
+      dates?: string[];
     }
   | undefined;
 
 // PRD 7.2 "range of days" scope: one LLM call returns a suggestion per day
 // so it can spread variety/spacing across the whole batch (see
-// buildMultiDayPrompt), rather than N independent single-day calls. Always
-// starts from today, matching dateSchema's own 7-day window - a 7-day plan's
-// last day (today + 6) is still the same boundary generateWorkoutSuggestionAction
-// already enforces per-day. A WorkoutPlan row is created once generation
-// actually succeeds (grouping this batch, per PRD Section 9), and its id is
-// threaded through to each day's accept so the resulting sessions share it -
-// not created eagerly before the Claude call, so a failed generation doesn't
-// leave an empty plan row behind.
+// buildMultiDayPrompt), rather than N independent single-day calls. The
+// client resolves "how many/which days" down to a concrete, already-sorted
+// list of ISO dates before submitting - either auto-spaced across the next
+// week (SPACED_OFFSETS_BY_COUNT in multi-day-generate-form.tsx) or the
+// user's own calendar picks - so this action only has to validate the
+// result, not decide scheduling itself. A WorkoutPlan row is created once
+// generation actually succeeds (grouping this batch, per PRD Section 9),
+// and its id is threaded through to each day's accept so the resulting
+// sessions share it - not created eagerly before the Claude call, so a
+// failed generation doesn't leave an empty plan row behind.
 export async function generateWorkoutPlanAction(
   _prevState: GeneratePlanFormState,
   formData: FormData,
@@ -307,27 +337,23 @@ export async function generateWorkoutPlanAction(
   );
   const freeText = parsedFreeText.success ? parsedFreeText.data : "";
 
-  const parsedNumDays = numDaysSchema.safeParse(formData.get("numDays"));
-  if (!parsedNumDays.success) {
+  const rawDates = formData
+    .getAll("dates")
+    .filter((v): v is string => typeof v === "string");
+  const parsedDates = datesArraySchema.safeParse(rawDates);
+  if (!parsedDates.success) {
     return {
-      error:
-        parsedNumDays.error.issues[0]?.message ?? "Pick between 1 and 7 days.",
+      error: parsedDates.error.issues[0]?.message ?? "Pick at least 1 day.",
     };
   }
-  const numDays = parsedNumDays.data;
-
-  const now = new Date();
-  const startDate = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+  const dates = parsedDates.data;
 
   const { historyLines, libraryLines } = await buildGenerationContext(
     session.user.id,
   );
   const { system, prompt } = buildMultiDayPrompt(
     freeText,
-    startDate,
-    numDays,
+    dates,
     historyLines,
     libraryLines,
   );
@@ -337,12 +363,12 @@ export async function generateWorkoutPlanAction(
       system,
       prompt,
       schema: multiDaySuggestionSchema,
-      toolDescription: `Return the ${numDays}-day workout plan structure matching the schema, with exactly ${numDays} entries in "days", one per day in order starting from the given start date.`,
+      toolDescription: `Return the workout plan structure matching the schema, with exactly ${dates.length} entries in "days", one per listed date in order.`,
     });
 
-    if (result.days.length !== numDays) {
+    if (result.days.length !== dates.length) {
       console.error(
-        `Multi-day generation returned ${result.days.length} days, expected ${numDays}.`,
+        `Multi-day generation returned ${result.days.length} days, expected ${dates.length}.`,
       );
       return {
         error: "Couldn't generate the right number of days. Try again.",
@@ -352,8 +378,8 @@ export async function generateWorkoutPlanAction(
     const plan = await prisma.workoutPlan.create({
       data: {
         userId: session.user.id,
-        startDate,
-        numDays,
+        startDate: dates[0],
+        numDays: dates.length,
         sourcePrompt: freeText.trim() || null,
       },
     });
@@ -361,7 +387,7 @@ export async function generateWorkoutPlanAction(
     return {
       days: result.days,
       planId: plan.id,
-      startIso: startDate.toISOString().slice(0, 10),
+      dates: dates.map((d) => d.toISOString().slice(0, 10)),
     };
   } catch (error) {
     console.error("Workout plan generation failed:", error);
