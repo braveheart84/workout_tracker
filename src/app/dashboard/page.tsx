@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { startAdHocWorkoutAction } from "@/app/workouts/actions";
+import { BottomNav } from "@/components/bottom-nav";
 import { SkippedDayBanner } from "./skipped-day-banner";
 
 export default async function DashboardPage() {
@@ -108,39 +109,8 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap justify-center gap-4 text-sm">
-        <Link href="/generate" className="underline">
-          Generate Workout
-        </Link>
-        <Link href="/week" className="underline">
-          Week view
-        </Link>
-        <Link href="/history" className="underline">
-          History
-        </Link>
-        <Link href="/exercises" className="underline">
-          Exercise library
-        </Link>
-        <Link href="/templates" className="underline">
-          Templates
-        </Link>
-        <Link href="/settings" className="underline">
-          Account settings
-        </Link>
-      </div>
-      <form
-        action={async () => {
-          "use server";
-          await signOut({ redirectTo: "/" });
-        }}
-      >
-        <button
-          type="submit"
-          className="border-input rounded-md border px-3 py-2 text-sm font-medium"
-        >
-          Sign out
-        </button>
-      </form>
+      <div className="h-20" aria-hidden="true" />
+      <BottomNav />
     </main>
   );
 }

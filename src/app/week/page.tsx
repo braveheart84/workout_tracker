@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { startAdHocWorkoutAction } from "@/app/workouts/actions";
+import { BottomNav } from "@/components/bottom-nav";
 
 const STATUS_ACTION_LABEL = {
   IN_PROGRESS: "Continue",
@@ -56,12 +57,7 @@ export default async function WeekPage() {
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
       <div className="w-full max-w-lg space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">This Week</h1>
-          <Link href="/dashboard" className="text-sm underline">
-            Back to dashboard
-          </Link>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">This Week</h1>
 
         <ul className="space-y-3">
           {days.map((day) => (
@@ -124,7 +120,9 @@ export default async function WeekPage() {
             </li>
           ))}
         </ul>
+        <div className="h-20" aria-hidden="true" />
       </div>
+      <BottomNav />
     </main>
   );
 }

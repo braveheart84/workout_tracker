@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DIFFICULTY_LABELS } from "@/lib/difficulty";
+import { BottomNav } from "@/components/bottom-nav";
 
 export default async function HistoryPage() {
   const session = await auth();
@@ -44,12 +45,7 @@ export default async function HistoryPage() {
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
       <div className="w-full max-w-lg space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">History</h1>
-          <Link href="/dashboard" className="text-sm underline">
-            Back to dashboard
-          </Link>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">History</h1>
 
         {upcoming.length > 0 && (
           <div className="space-y-3">
@@ -148,7 +144,9 @@ export default async function HistoryPage() {
             </ul>
           </div>
         )}
+        <div className="h-20" aria-hidden="true" />
       </div>
+      <BottomNav />
     </main>
   );
 }
