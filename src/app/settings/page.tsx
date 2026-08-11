@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { BottomNav } from "@/components/bottom-nav";
 import { SettingsForm } from "./settings-form";
 
 export default async function SettingsPage() {
@@ -24,7 +25,9 @@ export default async function SettingsPage() {
           currentUnitSystem={user.unitSystem}
           currentRemindersEnabled={user.remindersEnabled}
         />
+        <div className="h-20" aria-hidden="true" />
       </div>
+      <BottomNav />
     </main>
   );
 }

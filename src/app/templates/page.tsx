@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { workoutSuggestionSchema } from "@/lib/workout-suggestion-schema";
+import { BottomNav } from "@/components/bottom-nav";
 import { TemplateRow } from "./template-row";
 
 export default async function TemplatesPage() {
@@ -19,12 +19,7 @@ export default async function TemplatesPage() {
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
       <div className="w-full max-w-lg space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Templates</h1>
-          <Link href="/dashboard" className="text-sm underline">
-            Back to dashboard
-          </Link>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Templates</h1>
 
         <p className="text-muted-foreground text-sm">
           Save any accepted or completed workout as a template from its page,
@@ -55,7 +50,9 @@ export default async function TemplatesPage() {
             })}
           </ul>
         )}
+        <div className="h-20" aria-hidden="true" />
       </div>
+      <BottomNav />
     </main>
   );
 }

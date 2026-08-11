@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import { updateSettingsAction, type SettingsState } from "./actions";
 
 export function SettingsForm({
@@ -64,12 +63,6 @@ export function SettingsForm({
       >
         {pending ? "Saving…" : "Save changes"}
       </button>
-
-      <p className="text-muted-foreground text-sm">
-        <Link href="/dashboard" className="underline">
-          Back to dashboard
-        </Link>
-      </p>
     </form>
   );
 }
