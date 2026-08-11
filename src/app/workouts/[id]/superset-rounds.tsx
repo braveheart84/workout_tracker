@@ -6,6 +6,7 @@ import type {
 import { SetRow } from "./set-row";
 import { AddSetForm } from "./add-set-form";
 import { DurationLogging } from "./duration-logging";
+import type { CurrentPosition } from "./blocks-manager";
 
 // Renders a superset block's rounds grouped by round number rather than by
 // exercise, so e.g. squat's round 1 and deadlift's round 1 sit next to each
@@ -17,6 +18,7 @@ export function SupersetRounds({
   exercises,
   defaultWeightUnit,
   disabled,
+  current,
 }: {
   sessionId: string;
   roundCount: number;
@@ -30,6 +32,7 @@ export function SupersetRounds({
   }[];
   defaultWeightUnit: WeightUnit;
   disabled: boolean;
+  current: CurrentPosition | null;
 }) {
   const rounds = Array.from({ length: roundCount }, (_, i) => i + 1);
 
@@ -53,10 +56,26 @@ export function SupersetRounds({
               const roundSets = we.sets
                 .filter((s) => s.roundNumber === round)
                 .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+              const isCurrent =
+                current?.workoutExerciseId === we.id && current.round === round;
 
               return (
-                <div key={we.id} className="space-y-1 pt-2 first:pt-0">
-                  <p className="font-medium">{we.exercise.name}</p>
+                <div
+                  key={we.id}
+                  className={
+                    isCurrent
+                      ? "ring-primary/50 space-y-1 rounded-md p-1 pt-2 ring-2 first:pt-2"
+                      : "space-y-1 pt-2 first:pt-0"
+                  }
+                >
+                  <p className="font-medium">
+                    {we.exercise.name}
+                    {isCurrent && (
+                      <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                        Up next
+                      </span>
+                    )}
+                  </p>
                   {roundSets.length > 0 && (
                     <ul className="space-y-1">
                       {roundSets.map((set) => (
