@@ -180,6 +180,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** recent difficulty ratings (7.6 data, already captured since PR-09) included in the generation prompt context; suggestion intensity nudges based on the trend.
 - **Deployable because:** prompt-context change only, no schema change.
 - **PRD ref:** 7.2 (difficulty-rating context).
+- **Status:** ✅ Shipped — GitHub PR #37. Session-level average of ratings from COMPLETED sessions in the last 14 days is summarized into one guidance line (nudge up / ease back / keep similar) and threaded into both the single-day and multi-day generation prompts (not revise or import, which deliberately exclude this context). Live-tested against the real Claude API with seeded easy-trend, hard-trend, and no-trend histories — rationale correctly reflected each case.
 
 ### PR-19: Adaptive generation from actual performance
 
