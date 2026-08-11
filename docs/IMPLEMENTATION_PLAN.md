@@ -137,7 +137,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** thin Anthropic Claude client wrapper (timeout + single retry); Zod schemas for the workout-suggestion JSON shape; no user-facing surface yet.
 - **Deployable because:** backend-only utility code, unused until PR-14 wires it in.
 - **PRD ref:** Section 8 (AI cost/latency); TECH_STACK.md Section 5.
-- **Status:** 🚧 In review — GitHub PR #19. Uses Zod v4's native `z.toJSONSchema()` rather than the third-party `zod-to-json-schema` package, which doesn't correctly introspect Zod v4 schemas. Timeout + single retry are delegated to the Anthropic SDK's own client options rather than reimplemented. Live API testing deferred to PR-14 (no UI in this PR to test through) — verified structurally instead (schema validation, client error paths) against the real exported code.
+- **Status:** ✅ Shipped — GitHub PR #19. Uses Zod v4's native `z.toJSONSchema()` rather than the third-party `zod-to-json-schema` package, which doesn't correctly introspect Zod v4 schemas. Timeout + single retry are delegated to the Anthropic SDK's own client options rather than reimplemented. Live API testing deferred to PR-14 (no UI in this PR to test through) — verified structurally instead (schema validation, client error paths) against the real exported code. Follow-up fix in GitHub PR #22, once live-tested with real generations: Claude's tool-use `strict: true` mode is needed (without it, Claude was observed omitting required fields or returning `null` instead of a populated array), but strict mode only enforces structural JSON Schema keywords and rejects value-range ones (`minItems`/`maximum`/etc.) outright — fixed by stripping that keyword class from the wire schema while keeping full Zod validation locally.
 
 ### PR-14: AI Workout Generation — single day
 
@@ -145,7 +145,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** "Generate Workout" flow for today only: free-text input, recent-history context assembly, one LLM-generated suggestion (blocks/exercises/target sets), review/edit/regenerate/accept UI; accepting creates a `planned` `WorkoutSession` pre-filled per 7.4.
 - **Deployable because:** additive entry point alongside the existing ad-hoc "Start Workout."
 - **PRD ref:** 7.2 (single-day subset).
-- **Status:** 🚧 In review — GitHub PR #20. Live-tested end-to-end against the real Claude API (a temporary key, not committed): generated a sensible suggestion that correctly reused existing library exercises, accepted it into a real Planned session. No `Set` rows are pre-created on accept - there's no `suggested_*` column yet to hold a target separately from an actual logged value (PR-19), so the session starts from an empty, loggable structure. `workouts/[id]` shows a PLANNED session read-only with a "Start Workout" button rather than the richer pre-start review screen, which is PR-15's job. Requires `ANTHROPIC_API_KEY` in Vercel's env vars before this works in production.
+- **Status:** ✅ Shipped — GitHub PR #20. Live-tested end-to-end against the real Claude API (a temporary key, not committed): generated a sensible suggestion that correctly reused existing library exercises, accepted it into a real Planned session. No `Set` rows are pre-created on accept - there's no `suggested_*` column yet to hold a target separately from an actual logged value (PR-19), so the session starts from an empty, loggable structure. Requires `ANTHROPIC_API_KEY` in Vercel's env vars before this works in production. Follow-up fixes from real production usage: GitHub PR #21 (Generate Workout was unreachable once a session existed for today; extended to target any day in the next 7, not just today), GitHub PR #23 (accepting a larger suggestion could exceed Prisma's interactive-transaction timeout - fixed by resolving exercises outside the transaction and batching block/exercise inserts), GitHub PR #24 (added an iterative revise-suggestion loop - feedback on the generated suggestion, e.g. "swap X for Y," produces a revised suggestion without losing the rest, repeatable until accepted).
 
 ### PR-15: Workout review screen
 
@@ -153,6 +153,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** the pre-start review screen (block/exercise/target summary) shown when opening a planned day, with "Start Workout" as the primary action.
 - **Deployable because:** an additional screen in the existing planned-workout path.
 - **PRD ref:** 7.3 (review screen).
+- **Status:** ✅ Shipped — GitHub PR #30. Most of this scope already existed by accident: `/workouts/[id]` already rendered the block/exercise structure read-only for a `PLANNED` session with "Start Workout" as the primary CTA (from PR-14's `workouts/[id]` page plus later polish). Gap-checked and found one real gap - target reps/duration/distance weren't visible at all when reviewing, since that hint only rendered inside the interactive logging form, hidden while the session isn't editable - closed by rendering a plain "Target: N reps/Ns/Nm" line per round instead.
 
 ### PR-16: Multi-day generation
 
