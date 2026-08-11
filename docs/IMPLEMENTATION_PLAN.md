@@ -195,6 +195,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** `WorkoutTemplate` table + migration; "Save as Template" from any accepted/completed session; "Start from Template" as an ad-hoc entry point and as a generation shortcut.
 - **Deployable because:** new entity + additive entry points; no existing flow changes.
 - **PRD ref:** 7.2 (Workout Templates); Section 9 (`WorkoutTemplate`).
+- **Status:** ✅ Shipped — GitHub PR #38. `structure` is stored in the same shape as an AI suggestion so a template drops straight into the existing suggestion review/accept UI. "Save as Template" prefers a representative logged set (the only source with weight), falling back to target fields, then a schema-minimum default. The generation shortcut is single-day only (no multi-day dependency yet). Persistence logic shared with `generate/actions.ts` via new `src/lib/persist-workout-structure.ts`.
 
 ### PR-21: "Repeat like last week" & focus-area generation
 
