@@ -50,7 +50,15 @@ export function MultiDayGenerateForm({ todayIso }: { todayIso: string }) {
   // pick the exact days on a calendar (the user usually already knows which
   // days they're free).
   const [scheduleMode, setScheduleMode] = useState<"auto" | "manual">("auto");
-  const [numDays, setNumDays] = useState(3);
+  // Raw text the user is typing, kept separate from the clamped number used
+  // for scheduling - a controlled input whose value is the clamped result
+  // fights the user mid-edit: clearing the field to type "5" collapses to
+  // "1" first (since "" clamps to the 1-7 range's minimum), so the next
+  // keystroke appends onto "1" instead of starting fresh (e.g. becomes "15",
+  // which then clamps to 7). Clamping only happens for the derived
+  // `numDays` below and once more on blur, not on every keystroke.
+  const [numDaysInput, setNumDaysInput] = useState("3");
+  const numDays = Math.min(7, Math.max(1, parseInt(numDaysInput, 10) || 1));
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
 
   const autoDates = (SPACED_OFFSETS_BY_COUNT[numDays] ?? [0]).map((offset) =>
@@ -98,12 +106,9 @@ export function MultiDayGenerateForm({ todayIso }: { todayIso: string }) {
               type="number"
               min={1}
               max={7}
-              value={numDays}
-              onChange={(e) =>
-                setNumDays(
-                  Math.min(7, Math.max(1, Number(e.target.value) || 1)),
-                )
-              }
+              value={numDaysInput}
+              onChange={(e) => setNumDaysInput(e.target.value)}
+              onBlur={() => setNumDaysInput(String(numDays))}
               className="border-input bg-background w-20 rounded-md border px-3 py-2 text-sm"
             />
             <p className="text-muted-foreground text-xs">
