@@ -161,6 +161,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** `WorkoutPlan` table + migration; "how many days" prompt (1–7); day-by-day suggestion review list; per-day accept/regenerate/edit.
 - **Deployable because:** extends the single-day flow from PR-14 without changing it for the single-day case.
 - **PRD ref:** 7.2 (multi-day); Section 9 (`WorkoutPlan`).
+- **Status:** ✅ Shipped — GitHub PR #31. First cut generated N _consecutive_ days; live user feedback pointed out that's not how people actually plan a training week, so it was reworked before merging into two scheduling modes: "This week" (a workout count, auto-spaced across the next 7 days with rest days between via a hardcoded offset table) and "Pick specific days" (a 7-day checkbox calendar). Both resolve to an explicit list of chosen dates client-side before submitting; `buildMultiDayPrompt` lists the actual calendar dates so Claude infers real gaps between sessions rather than assuming a fixed cadence. One LLM call returns all days at once (not N independent calls) so it can spread muscle-group variety across the whole batch.
 
 ### PR-17: Week view & skipped-day handling
 
