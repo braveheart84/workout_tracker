@@ -188,6 +188,7 @@ This phase proves out the hardest part of the data model — blocks, rounds, and
 - **Contains:** `Set.suggested_*` fields (reps/weight/duration/distance) + migration, populated when a set is pre-filled from a plan; suggested-vs-actual deltas for recent sessions included in the generation prompt.
 - **Deployable because:** additive nullable columns; existing set-logging UI unaffected until generation reads them.
 - **PRD ref:** 7.2 (adaptive to actual performance); Section 9 (`Set.suggested_*`).
+- **Status:** ✅ Shipped — GitHub PR #39. Also added `WorkoutExercise.targetWeight`/`targetWeightUnit`, closing a pre-existing gap where a suggestion's/template's weight was silently dropped on accept. `summarizePerformanceDeltas` compares average actual vs. suggested per exercise (reps/duration/distance, plus load when weight units match) across recent completed sessions. Live-tested against the real Claude API: seeded a clear "beating target" exercise and a clear "falling short" exercise plus an untracked control - generation correctly nudged the first up, eased the second back, left the control alone, and explained each adjustment by name in the rationale.
 
 ### PR-20: Workout templates
 
