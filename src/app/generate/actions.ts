@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requestStructuredOutput } from "@/lib/claude";
 import {
   workoutSuggestionSchema,
+  multiDaySuggestionSchema,
   type WorkoutSuggestion,
 } from "@/lib/workout-suggestion-schema";
 
@@ -16,6 +17,13 @@ const feedbackSchema = z
   .trim()
   .min(1, "Describe what you'd like to change.")
   .max(1000);
+
+// PRD 7.2: a range request asks "how many days (1-7)".
+const numDaysSchema = z.coerce
+  .number()
+  .int()
+  .min(1, "Pick between 1 and 7 days.")
+  .max(7, "Pick between 1 and 7 days.");
 
 // Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
 // a single-day suggestion can target any day from today through 6 days out.
@@ -163,6 +171,49 @@ function buildRevisionPrompt(
   return { system, prompt };
 }
 
+function buildMultiDayPrompt(
+  freeText: string,
+  startDate: Date,
+  numDays: number,
+  historyLines: string[],
+  libraryLines: string[],
+) {
+  const system = [
+    "You are a fitness coaching assistant inside a workout tracking app.",
+    `Generate a ${numDays}-day workout plan as a structured suggestion matching the provided tool schema - exactly ${numDays} entries in "days", one per day in order starting from the given start date.`,
+    "Vary the plan sensibly across the days: avoid repeating the same muscle group on consecutive days, and mix intensity/session focus where the user's request or history suggests variety.",
+    "Prefer reusing the user's existing exercise names from their library when a suitable match exists, rather than inventing near-duplicate names.",
+    "Keep each day's workout realistic in scope: 1-6 blocks, each with 1-5 exercises, sensible round counts (1-5), and sensible rest periods.",
+    "Avoid heavily repeating muscle groups the user trained in the 1-2 days before the start date, if that history is available.",
+  ].join(" ");
+
+  const startDateLabel = startDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+  const prompt = [
+    `This plan starts on: ${startDateLabel}, for ${numDays} consecutive day${numDays === 1 ? "" : "s"}.`,
+    "",
+    freeText.trim()
+      ? `User's request: ${freeText.trim()}`
+      : "User's request: (none given - use their recent history to suggest something sensible)",
+    "",
+    historyLines.length > 0
+      ? `Recent workout history (last 14 days, most recent first):\n${historyLines.join("\n")}`
+      : "Recent workout history: none available.",
+    "",
+    libraryLines.length > 0
+      ? `User's existing exercise library:\n${libraryLines.join("\n")}`
+      : "User's existing exercise library: empty.",
+  ].join("\n");
+
+  return { system, prompt };
+}
+
 export type GenerateFormState =
   { error?: string; suggestion?: WorkoutSuggestion; date?: string } | undefined;
 
@@ -222,11 +273,111 @@ export async function generateWorkoutSuggestionAction(
   }
 }
 
+export type GeneratePlanFormState =
+  | {
+      error?: string;
+      days?: WorkoutSuggestion[];
+      planId?: string;
+      startIso?: string;
+    }
+  | undefined;
+
+// PRD 7.2 "range of days" scope: one LLM call returns a suggestion per day
+// so it can spread variety/spacing across the whole batch (see
+// buildMultiDayPrompt), rather than N independent single-day calls. Always
+// starts from today, matching dateSchema's own 7-day window - a 7-day plan's
+// last day (today + 6) is still the same boundary generateWorkoutSuggestionAction
+// already enforces per-day. A WorkoutPlan row is created once generation
+// actually succeeds (grouping this batch, per PRD Section 9), and its id is
+// threaded through to each day's accept so the resulting sessions share it -
+// not created eagerly before the Claude call, so a failed generation doesn't
+// leave an empty plan row behind.
+export async function generateWorkoutPlanAction(
+  _prevState: GeneratePlanFormState,
+  formData: FormData,
+): Promise<GeneratePlanFormState> {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const parsedFreeText = freeTextSchema.safeParse(
+    formData.get("freeText") ?? "",
+  );
+  const freeText = parsedFreeText.success ? parsedFreeText.data : "";
+
+  const parsedNumDays = numDaysSchema.safeParse(formData.get("numDays"));
+  if (!parsedNumDays.success) {
+    return {
+      error:
+        parsedNumDays.error.issues[0]?.message ?? "Pick between 1 and 7 days.",
+    };
+  }
+  const numDays = parsedNumDays.data;
+
+  const now = new Date();
+  const startDate = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+
+  const { historyLines, libraryLines } = await buildGenerationContext(
+    session.user.id,
+  );
+  const { system, prompt } = buildMultiDayPrompt(
+    freeText,
+    startDate,
+    numDays,
+    historyLines,
+    libraryLines,
+  );
+
+  try {
+    const result = await requestStructuredOutput({
+      system,
+      prompt,
+      schema: multiDaySuggestionSchema,
+      toolDescription: `Return the ${numDays}-day workout plan structure matching the schema, with exactly ${numDays} entries in "days", one per day in order starting from the given start date.`,
+    });
+
+    if (result.days.length !== numDays) {
+      console.error(
+        `Multi-day generation returned ${result.days.length} days, expected ${numDays}.`,
+      );
+      return {
+        error: "Couldn't generate the right number of days. Try again.",
+      };
+    }
+
+    const plan = await prisma.workoutPlan.create({
+      data: {
+        userId: session.user.id,
+        startDate,
+        numDays,
+        sourcePrompt: freeText.trim() || null,
+      },
+    });
+
+    return {
+      days: result.days,
+      planId: plan.id,
+      startIso: startDate.toISOString().slice(0, 10),
+    };
+  } catch (error) {
+    console.error("Workout plan generation failed:", error);
+    return {
+      error:
+        "Couldn't generate a plan right now. Try again, or generate a single day instead.",
+    };
+  }
+}
+
 // Applies a specific user-requested change to an already-generated
 // suggestion (e.g. "swap burpees for mountain climbers", "make the finisher
 // less intense") and returns the revised suggestion, without persisting
 // anything - the user can keep revising, regenerate from scratch, or accept,
-// same as the initial suggestion from generateWorkoutSuggestionAction.
+// same as the initial suggestion from generateWorkoutSuggestionAction. Also
+// reused as-is to revise a single day within a multi-day plan (PR-16) -
+// same shape, no plan-awareness needed since revising doesn't touch the DB.
 export async function reviseWorkoutSuggestionAction(
   _prevState: GenerateFormState,
   formData: FormData,
@@ -305,6 +456,7 @@ export async function persistWorkoutSuggestion(
   userId: string,
   suggestion: WorkoutSuggestion,
   date: Date,
+  planId?: string,
 ) {
   // Resolve/create every referenced exercise up front, outside the
   // transaction and in parallel. Previously this looped one upsert + one
@@ -348,6 +500,7 @@ export async function persistWorkoutSuggestion(
           type: "STRENGTH",
           label: suggestion.label,
           source: "AI_GENERATED",
+          planId,
         },
       });
 
@@ -426,4 +579,61 @@ export async function acceptWorkoutSuggestionAction(
   );
 
   redirect(`/workouts/${newSessionId}`);
+}
+
+const planIdSchema = z.string().min(1, "Missing plan.");
+
+export type AcceptDayFormState =
+  { error?: string; sessionId?: string } | undefined;
+
+// Accepts a single day within a multi-day plan (PR-16). Unlike
+// acceptWorkoutSuggestionAction, this doesn't redirect - other days in the
+// same batch may still be under review, so the caller stays on the plan
+// review screen and reflects this day as accepted in place.
+export async function acceptDayInPlanAction(
+  _prevState: AcceptDayFormState,
+  formData: FormData,
+): Promise<AcceptDayFormState> {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const raw = formData.get("suggestion");
+  if (typeof raw !== "string") {
+    return { error: "Missing suggestion data." };
+  }
+
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return { error: "Invalid suggestion data." };
+  }
+
+  const parsed = workoutSuggestionSchema.safeParse(json);
+  if (!parsed.success) {
+    return { error: "Invalid suggestion data." };
+  }
+
+  const parsedDate = dateSchema.safeParse(formData.get("date"));
+  if (!parsedDate.success) {
+    return {
+      error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
+    };
+  }
+
+  const parsedPlanId = planIdSchema.safeParse(formData.get("planId"));
+  if (!parsedPlanId.success) {
+    return { error: "Missing plan." };
+  }
+
+  const newSessionId = await persistWorkoutSuggestion(
+    session.user.id,
+    parsed.data,
+    parsedDate.data,
+    parsedPlanId.data,
+  );
+
+  return { sessionId: newSessionId };
 }

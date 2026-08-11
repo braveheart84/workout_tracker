@@ -54,6 +54,7 @@ model User {
 
   exercises       Exercise[]
   workoutSessions WorkoutSession[]
+  workoutPlans    WorkoutPlan[]
 
   @@map("users")
 }
@@ -80,6 +81,7 @@ model Exercise {
 model WorkoutSession {
   id               String               @id @default(uuid())
   userId           String               @map("user_id")
+  planId           String?              @map("plan_id")
   date             DateTime             @db.Date
   status           WorkoutSessionStatus @default(IN_PROGRESS)
   type             WorkoutSessionType   @default(STRENGTH)
@@ -97,9 +99,29 @@ model WorkoutSession {
   completedAt      DateTime?            @map("completed_at")
 
   user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan   WorkoutPlan?   @relation(fields: [planId], references: [id], onDelete: SetNull)
   blocks WorkoutBlock[]
 
   @@map("workout_sessions")
+}
+
+// PRD Section 9 (WorkoutPlan) - groups the batch of sessions generated
+// together by one multi-day generation request (PR-16); a single-day
+// generation (PR-14) never creates one of these. `focus_tags` and
+// `based_on_session_id` from the PRD's schema sketch aren't added yet -
+// unused until PR-21's repeat-last-week/focus-area shortcuts.
+model WorkoutPlan {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  startDate    DateTime @map("start_date") @db.Date
+  numDays      Int      @map("num_days")
+  sourcePrompt String?  @map("source_prompt")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workoutSessions WorkoutSession[]
+
+  @@map("workout_plans")
 }
 
 // PRD Section 9 (WorkoutBlock) - groups one or more exercises done together
