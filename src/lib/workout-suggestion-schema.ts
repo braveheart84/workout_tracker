@@ -54,3 +54,13 @@ export type SuggestedSet = z.infer<typeof suggestedSetSchema>;
 export type SuggestedExercise = z.infer<typeof suggestedExerciseSchema>;
 export type SuggestedBlock = z.infer<typeof suggestedBlockSchema>;
 export type WorkoutSuggestion = z.infer<typeof workoutSuggestionSchema>;
+
+// PRD 7.2 (multi-day): a range request returns one suggestion per day, in
+// order, so the model can spread variety/spacing (muscle groups, intensity)
+// across the whole batch in a single call rather than N independent calls
+// with no visibility into each other (PR-16).
+export const multiDaySuggestionSchema = z.object({
+  days: z.array(workoutSuggestionSchema).min(1).max(7),
+});
+
+export type MultiDaySuggestion = z.infer<typeof multiDaySuggestionSchema>;

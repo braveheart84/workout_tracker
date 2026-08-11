@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { GenerateForm } from "./generate-form";
+import { GenerateModeToggle } from "./generate-mode-toggle";
 
 export default async function GeneratePage() {
   const session = await auth();
@@ -29,7 +29,7 @@ export default async function GeneratePage() {
             Back to dashboard
           </Link>
         </div>
-        <GenerateForm todayIso={todayIso} maxIso={maxIso} />
+        <GenerateModeToggle todayIso={todayIso} maxIso={maxIso} />
       </div>
     </main>
   );
