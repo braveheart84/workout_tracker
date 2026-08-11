@@ -112,6 +112,156 @@ function summarizeDifficultyTrend(
   return `Average difficulty rating across the last ${ratings.length} rated session${ratings.length === 1 ? "" : "s"} (1 = Too Easy, 5 = Too Hard): ${average.toFixed(1)}/5 - ${guidance}.`;
 }
 
+// PRD 7.2/7.6: "the AI's future suggestions [should] reflect what I actually
+// lifted or ran, not just what it originally suggested." Per-exercise
+// (unlike summarizeDifficultyTrend's session-level average) since
+// Set.suggested_* (PR-19) snapshots what was targeted alongside what was
+// actually logged for every round logged against a planned/templated
+// exercise - a manually-added exercise never populates suggested_*, so it's
+// naturally excluded here as having nothing to compare against.
+function summarizePerformanceDeltas(
+  recentSessions: {
+    blocks: {
+      workoutExercises: {
+        exercise: { name: string };
+        sets: {
+          setType: "REPS" | "DURATION" | "DISTANCE";
+          reps: number | null;
+          suggestedReps: number | null;
+          durationSeconds: number | null;
+          suggestedDurationSeconds: number | null;
+          distanceMeters: number | null;
+          suggestedDistanceMeters: number | null;
+          weight: number | null;
+          weightUnit: "KG" | "LB" | null;
+          suggestedWeight: number | null;
+          suggestedWeightUnit: "KG" | "LB" | null;
+        }[];
+      }[];
+    }[];
+  }[],
+): string[] {
+  type Samples = {
+    actual: number[];
+    suggested: number[];
+    format: (n: number) => string;
+    weightActual: number[];
+    weightSuggested: number[];
+    weightUnit: "KG" | "LB" | null;
+  };
+  const byExercise = new Map<string, Samples>();
+
+  for (const session of recentSessions) {
+    for (const block of session.blocks) {
+      for (const we of block.workoutExercises) {
+        for (const set of we.sets) {
+          let samples = byExercise.get(we.exercise.name);
+          if (!samples) {
+            samples = {
+              actual: [],
+              suggested: [],
+              format:
+                set.setType === "REPS"
+                  ? (n) => `${Math.round(n)} reps`
+                  : set.setType === "DURATION"
+                    ? (n) => `${Math.round(n)}s`
+                    : (n) => `${Math.round(n)}m`,
+              weightActual: [],
+              weightSuggested: [],
+              weightUnit: null,
+            };
+            byExercise.set(we.exercise.name, samples);
+          }
+
+          if (
+            set.setType === "REPS" &&
+            set.reps != null &&
+            set.suggestedReps != null
+          ) {
+            samples.actual.push(set.reps);
+            samples.suggested.push(set.suggestedReps);
+          } else if (
+            set.setType === "DURATION" &&
+            set.durationSeconds != null &&
+            set.suggestedDurationSeconds != null
+          ) {
+            samples.actual.push(set.durationSeconds);
+            samples.suggested.push(set.suggestedDurationSeconds);
+          } else if (
+            set.setType === "DISTANCE" &&
+            set.distanceMeters != null &&
+            set.suggestedDistanceMeters != null
+          ) {
+            samples.actual.push(set.distanceMeters);
+            samples.suggested.push(set.suggestedDistanceMeters);
+          }
+
+          // Only compared when the unit matches - a suggestion logged in kg
+          // and later switched to lb (or vice versa) isn't a meaningful
+          // delta without a conversion this app doesn't do elsewhere.
+          if (
+            set.weight != null &&
+            set.suggestedWeight != null &&
+            set.weightUnit != null &&
+            set.weightUnit === set.suggestedWeightUnit
+          ) {
+            samples.weightActual.push(set.weight);
+            samples.weightSuggested.push(set.suggestedWeight);
+            samples.weightUnit = set.weightUnit;
+          }
+        }
+      }
+    }
+  }
+
+  const average = (nums: number[]) =>
+    nums.reduce((sum, n) => sum + n, 0) / nums.length;
+
+  const describe = (
+    avgActual: number,
+    avgSuggested: number,
+    format: (n: number) => string,
+  ) => {
+    const ratio =
+      avgSuggested === 0 ? 0 : (avgActual - avgSuggested) / avgSuggested;
+    const direction =
+      ratio > 0.1
+        ? "running ahead of the suggested target - consider nudging it up"
+        : ratio < -0.1
+          ? "falling short of the suggested target - consider easing it back"
+          : "roughly matching the suggested target";
+    return `averaged ${format(avgActual)} vs a suggested ${format(avgSuggested)} (${direction})`;
+  };
+
+  const lines: string[] = [];
+  for (const [name, samples] of byExercise) {
+    const clauses: string[] = [];
+    if (samples.actual.length > 0) {
+      clauses.push(
+        describe(
+          average(samples.actual),
+          average(samples.suggested),
+          samples.format,
+        ),
+      );
+    }
+    if (samples.weightActual.length > 0 && samples.weightUnit) {
+      const weightUnit = samples.weightUnit;
+      clauses.push(
+        `load ${describe(
+          average(samples.weightActual),
+          average(samples.weightSuggested),
+          (n) => `${Math.round(n * 10) / 10}${weightUnit.toLowerCase()}`,
+        )}`,
+      );
+    }
+    if (clauses.length > 0) {
+      lines.push(`- ${name}: ${clauses.join("; ")}`);
+    }
+  }
+  return lines.sort();
+}
+
 async function buildGenerationContext(userId: string) {
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
@@ -122,7 +272,9 @@ async function buildGenerationContext(userId: string) {
       orderBy: { date: "desc" },
       include: {
         blocks: {
-          include: { workoutExercises: { include: { exercise: true } } },
+          include: {
+            workoutExercises: { include: { exercise: true, sets: true } },
+          },
         },
       },
     }),
@@ -154,8 +306,14 @@ async function buildGenerationContext(userId: string) {
   });
 
   const difficultyTrendLine = summarizeDifficultyTrend(recentSessions);
+  const performanceDeltaLines = summarizePerformanceDeltas(recentSessions);
 
-  return { historyLines, libraryLines, difficultyTrendLine };
+  return {
+    historyLines,
+    libraryLines,
+    difficultyTrendLine,
+    performanceDeltaLines,
+  };
 }
 
 function buildPrompt(
@@ -164,6 +322,7 @@ function buildPrompt(
   historyLines: string[],
   libraryLines: string[],
   difficultyTrendLine: string | null,
+  performanceDeltaLines: string[],
 ) {
   const system = [
     "You are a fitness coaching assistant inside a workout tracking app.",
@@ -172,6 +331,7 @@ function buildPrompt(
     "Keep the workout realistic in scope: 1-6 blocks, each with 1-5 exercises, sensible round counts (1-5), and sensible rest periods.",
     "Avoid heavily repeating muscle groups the user trained in the last 1-2 days, if that history is available.",
     "If a recent difficulty-rating trend is given, use it to adjust intensity: a trend toward easy ratings means nudge load/volume/pace up from what's typical for this user, a trend toward hard ratings means ease it back, and an about-right trend means keep a similar intensity.",
+    "If suggested-vs-actual performance is given for a specific exercise, use it to calibrate that exercise's own target ahead of the general difficulty trend: running ahead of its suggested target means nudge that exercise's target up, falling short means ease it back, and roughly matching means keep it about the same.",
   ].join(" ");
 
   const targetDateLabel = targetDate.toLocaleDateString("en-US", {
@@ -196,6 +356,10 @@ function buildPrompt(
     difficultyTrendLine
       ? `Recent difficulty-rating trend: ${difficultyTrendLine}`
       : "Recent difficulty-rating trend: no rated sessions available.",
+    "",
+    performanceDeltaLines.length > 0
+      ? `Suggested-vs-actual performance per exercise (last 14 days):\n${performanceDeltaLines.join("\n")}`
+      : "Suggested-vs-actual performance per exercise: not enough logged data yet.",
     "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
@@ -290,6 +454,7 @@ function buildMultiDayPrompt(
   historyLines: string[],
   libraryLines: string[],
   difficultyTrendLine: string | null,
+  performanceDeltaLines: string[],
 ) {
   const numDays = dates.length;
   const system = [
@@ -301,6 +466,7 @@ function buildMultiDayPrompt(
     "Avoid heavily repeating muscle groups the user trained in the 1-2 days before the first listed date, if that history is available.",
     "Each day's label should describe the workout itself (e.g. its muscle focus or theme), not the day number or date - the app already displays those separately.",
     "If a recent difficulty-rating trend is given, use it to adjust intensity across the whole plan: a trend toward easy ratings means nudge load/volume/pace up from what's typical for this user, a trend toward hard ratings means ease it back, and an about-right trend means keep a similar intensity.",
+    "If suggested-vs-actual performance is given for a specific exercise, use it to calibrate that exercise's own target ahead of the general difficulty trend: running ahead of its suggested target means nudge that exercise's target up, falling short means ease it back, and roughly matching means keep it about the same.",
   ].join(" ");
 
   const dateLines = dates.map((date, index) => {
@@ -328,6 +494,10 @@ function buildMultiDayPrompt(
     difficultyTrendLine
       ? `Recent difficulty-rating trend: ${difficultyTrendLine}`
       : "Recent difficulty-rating trend: no rated sessions available.",
+    "",
+    performanceDeltaLines.length > 0
+      ? `Suggested-vs-actual performance per exercise (last 14 days):\n${performanceDeltaLines.join("\n")}`
+      : "Suggested-vs-actual performance per exercise: not enough logged data yet.",
     "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
@@ -364,14 +534,19 @@ export async function generateWorkoutSuggestionAction(
   const targetDate = parsedDate.data;
   const dateIso = targetDate.toISOString().slice(0, 10);
 
-  const { historyLines, libraryLines, difficultyTrendLine } =
-    await buildGenerationContext(session.user.id);
+  const {
+    historyLines,
+    libraryLines,
+    difficultyTrendLine,
+    performanceDeltaLines,
+  } = await buildGenerationContext(session.user.id);
   const { system, prompt } = buildPrompt(
     freeText,
     targetDate,
     historyLines,
     libraryLines,
     difficultyTrendLine,
+    performanceDeltaLines,
   );
 
   try {
@@ -503,14 +678,19 @@ export async function generateWorkoutPlanAction(
   }
   const dates = parsedDates.data;
 
-  const { historyLines, libraryLines, difficultyTrendLine } =
-    await buildGenerationContext(session.user.id);
+  const {
+    historyLines,
+    libraryLines,
+    difficultyTrendLine,
+    performanceDeltaLines,
+  } = await buildGenerationContext(session.user.id);
   const { system, prompt } = buildMultiDayPrompt(
     freeText,
     dates,
     historyLines,
     libraryLines,
     difficultyTrendLine,
+    performanceDeltaLines,
   );
 
   try {
