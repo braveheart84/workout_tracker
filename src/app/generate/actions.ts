@@ -85,6 +85,32 @@ async function getLibraryLines(userId: string) {
   );
 }
 
+// PRD 7.2: "consistently 'too easy' ratings ... should nudge the next
+// suggestion's load/pace/volume up, and 'too hard' ratings should ease it
+// back." Session-level only (the average across recent completed sessions,
+// not per-exercise) - per-exercise suggested-vs-actual adaptation is a
+// bigger feature (PR-19, needs Set.suggested_* fields) that doesn't exist
+// yet. Ratings are 1-5, matching DIFFICULTY_LABELS ("Too Easy" .. "Too
+// Hard"), so 3 is the "About Right" midpoint.
+function summarizeDifficultyTrend(
+  recentSessions: { difficultyRating: number | null }[],
+): string | null {
+  const ratings = recentSessions
+    .map((s) => s.difficultyRating)
+    .filter((r): r is number => r != null);
+  if (ratings.length === 0) return null;
+
+  const average = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+  const guidance =
+    average <= 2
+      ? "these have felt easy - nudge load/volume/pace up from what's typical for this user"
+      : average >= 4
+        ? "these have felt hard - ease load/volume/pace back from what's typical for this user"
+        : "these have felt about right - keep a similar intensity to what's typical for this user";
+
+  return `Average difficulty rating across the last ${ratings.length} rated session${ratings.length === 1 ? "" : "s"} (1 = Too Easy, 5 = Too Hard): ${average.toFixed(1)}/5 - ${guidance}.`;
+}
+
 async function buildGenerationContext(userId: string) {
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
@@ -126,7 +152,9 @@ async function buildGenerationContext(userId: string) {
     return `- ${parts.join(" | ")}`;
   });
 
-  return { historyLines, libraryLines };
+  const difficultyTrendLine = summarizeDifficultyTrend(recentSessions);
+
+  return { historyLines, libraryLines, difficultyTrendLine };
 }
 
 function buildPrompt(
@@ -134,6 +162,7 @@ function buildPrompt(
   targetDate: Date,
   historyLines: string[],
   libraryLines: string[],
+  difficultyTrendLine: string | null,
 ) {
   const system = [
     "You are a fitness coaching assistant inside a workout tracking app.",
@@ -141,6 +170,7 @@ function buildPrompt(
     "Prefer reusing the user's existing exercise names from their library when a suitable match exists, rather than inventing near-duplicate names.",
     "Keep the workout realistic in scope: 1-6 blocks, each with 1-5 exercises, sensible round counts (1-5), and sensible rest periods.",
     "Avoid heavily repeating muscle groups the user trained in the last 1-2 days, if that history is available.",
+    "If a recent difficulty-rating trend is given, use it to adjust intensity: a trend toward easy ratings means nudge load/volume/pace up from what's typical for this user, a trend toward hard ratings means ease it back, and an about-right trend means keep a similar intensity.",
   ].join(" ");
 
   const targetDateLabel = targetDate.toLocaleDateString("en-US", {
@@ -161,6 +191,10 @@ function buildPrompt(
     historyLines.length > 0
       ? `Recent workout history (last 14 days, most recent first):\n${historyLines.join("\n")}`
       : "Recent workout history: none available.",
+    "",
+    difficultyTrendLine
+      ? `Recent difficulty-rating trend: ${difficultyTrendLine}`
+      : "Recent difficulty-rating trend: no rated sessions available.",
     "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
@@ -254,6 +288,7 @@ function buildMultiDayPrompt(
   dates: Date[],
   historyLines: string[],
   libraryLines: string[],
+  difficultyTrendLine: string | null,
 ) {
   const numDays = dates.length;
   const system = [
@@ -264,6 +299,7 @@ function buildMultiDayPrompt(
     "Keep each day's workout realistic in scope: 1-6 blocks, each with 1-5 exercises, sensible round counts (1-5), and sensible rest periods.",
     "Avoid heavily repeating muscle groups the user trained in the 1-2 days before the first listed date, if that history is available.",
     "Each day's label should describe the workout itself (e.g. its muscle focus or theme), not the day number or date - the app already displays those separately.",
+    "If a recent difficulty-rating trend is given, use it to adjust intensity across the whole plan: a trend toward easy ratings means nudge load/volume/pace up from what's typical for this user, a trend toward hard ratings means ease it back, and an about-right trend means keep a similar intensity.",
   ].join(" ");
 
   const dateLines = dates.map((date, index) => {
@@ -287,6 +323,10 @@ function buildMultiDayPrompt(
     historyLines.length > 0
       ? `Recent workout history (last 14 days, most recent first):\n${historyLines.join("\n")}`
       : "Recent workout history: none available.",
+    "",
+    difficultyTrendLine
+      ? `Recent difficulty-rating trend: ${difficultyTrendLine}`
+      : "Recent difficulty-rating trend: no rated sessions available.",
     "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
@@ -323,14 +363,14 @@ export async function generateWorkoutSuggestionAction(
   const targetDate = parsedDate.data;
   const dateIso = targetDate.toISOString().slice(0, 10);
 
-  const { historyLines, libraryLines } = await buildGenerationContext(
-    session.user.id,
-  );
+  const { historyLines, libraryLines, difficultyTrendLine } =
+    await buildGenerationContext(session.user.id);
   const { system, prompt } = buildPrompt(
     freeText,
     targetDate,
     historyLines,
     libraryLines,
+    difficultyTrendLine,
   );
 
   try {
@@ -462,14 +502,14 @@ export async function generateWorkoutPlanAction(
   }
   const dates = parsedDates.data;
 
-  const { historyLines, libraryLines } = await buildGenerationContext(
-    session.user.id,
-  );
+  const { historyLines, libraryLines, difficultyTrendLine } =
+    await buildGenerationContext(session.user.id);
   const { system, prompt } = buildMultiDayPrompt(
     freeText,
     dates,
     historyLines,
     libraryLines,
+    difficultyTrendLine,
   );
 
   try {
