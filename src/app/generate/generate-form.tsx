@@ -43,15 +43,20 @@ export function GenerateForm({
     suggestion: WorkoutSuggestion;
     date: string;
   } | null>(null);
+  // The one shared textbox behind both "Revise" and "Start Over" once a
+  // suggestion exists - which action fires is decided by which button is
+  // clicked (each specifies its own formAction), not by which of two
+  // separate boxes the text sits in.
+  const [feedbackText, setFeedbackText] = useState("");
   const [prevGenState, setPrevGenState] = useState(genState);
   if (genState !== prevGenState) {
     setPrevGenState(genState);
     if (genState?.suggestion && genState.date) {
       setCurrent({ suggestion: genState.suggestion, date: genState.date });
+      setFeedbackText("");
     }
   }
   const [prevReviseState, setPrevReviseState] = useState(reviseState);
-  const [reviseFormKey, setReviseFormKey] = useState(0);
   if (reviseState !== prevReviseState) {
     setPrevReviseState(reviseState);
     if (reviseState?.suggestion && reviseState.date) {
@@ -59,7 +64,7 @@ export function GenerateForm({
         suggestion: reviseState.suggestion,
         date: reviseState.date,
       });
-      setReviseFormKey((k) => k + 1);
+      setFeedbackText("");
     }
   }
 
@@ -68,49 +73,47 @@ export function GenerateForm({
 
   return (
     <div className="space-y-4">
-      <form action={genAction} className="space-y-3">
-        <div className="space-y-1">
-          <label htmlFor="date" className="text-sm font-medium">
-            Which day is this for?
-          </label>
-          <input
-            id="date"
-            type="date"
-            name="date"
-            defaultValue={defaultDateIso}
-            min={todayIso}
-            max={maxIso}
-            className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="space-y-1">
-          <label htmlFor="freeText" className="text-sm font-medium">
-            How are you feeling? What do you want to work on? (optional)
-          </label>
-          <textarea
-            id="freeText"
-            name="freeText"
-            rows={3}
-            maxLength={1000}
-            placeholder="e.g. feeling tired, want something light for legs"
-            className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
-          />
-        </div>
-        {genState?.error && (
-          <p className="text-destructive text-sm">{genState.error}</p>
-        )}
-        <button
-          type="submit"
-          disabled={genPending}
-          className="bg-primary text-primary-foreground w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
-        >
-          {genPending
-            ? "Generating…"
-            : suggestion
-              ? "Regenerate from scratch"
-              : "Generate Workout"}
-        </button>
-      </form>
+      {!suggestion && (
+        <form action={genAction} className="space-y-3">
+          <div className="space-y-1">
+            <label htmlFor="date" className="text-sm font-medium">
+              Which day is this for?
+            </label>
+            <input
+              id="date"
+              type="date"
+              name="date"
+              defaultValue={defaultDateIso}
+              min={todayIso}
+              max={maxIso}
+              className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="freeText" className="text-sm font-medium">
+              How are you feeling? What do you want to work on? (optional)
+            </label>
+            <textarea
+              id="freeText"
+              name="freeText"
+              rows={3}
+              maxLength={1000}
+              placeholder="e.g. feeling tired, want something light for legs"
+              className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+          {genState?.error && (
+            <p className="text-destructive text-sm">{genState.error}</p>
+          )}
+          <button
+            type="submit"
+            disabled={genPending}
+            className="bg-primary text-primary-foreground w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {genPending ? "Generating…" : "Generate Workout"}
+          </button>
+        </form>
+      )}
 
       {suggestion && (
         <div className="space-y-3 rounded-md border p-4">
@@ -155,38 +158,50 @@ export function GenerateForm({
             ))}
           </ul>
 
-          <form
-            key={reviseFormKey}
-            action={reviseAction}
-            className="space-y-2 border-t pt-3"
-          >
+          <form action={reviseAction} className="space-y-2 border-t pt-3">
             <input
               type="hidden"
               name="currentSuggestion"
               value={JSON.stringify(suggestion)}
             />
             <input type="hidden" name="date" value={suggestionDate} />
+            <input type="hidden" name="freeText" value={feedbackText} />
             <label htmlFor="feedback" className="text-sm font-medium">
-              Want to adjust something?
+              Want to change something?
             </label>
             <textarea
               id="feedback"
               name="feedback"
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
               rows={2}
               maxLength={1000}
-              placeholder="e.g. swap burpees for mountain climbers, make the finisher easier"
+              placeholder="e.g. swap burpees for mountain climbers — or leave blank and start over completely"
               className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
             />
-            {reviseState?.error && (
-              <p className="text-destructive text-sm">{reviseState.error}</p>
+            {(genState?.error || reviseState?.error) && (
+              <p className="text-destructive text-sm">
+                {genState?.error || reviseState?.error}
+              </p>
             )}
-            <button
-              type="submit"
-              disabled={revisePending}
-              className="border-input w-full rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              {revisePending ? "Revising…" : "Revise"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                formAction={reviseAction}
+                disabled={genPending || revisePending}
+                className="border-input flex-1 rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                {revisePending ? "Revising…" : "Revise"}
+              </button>
+              <button
+                type="submit"
+                formAction={genAction}
+                disabled={genPending || revisePending}
+                className="border-input flex-1 rounded-md border px-3 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                {genPending ? "Regenerating…" : "Start Over"}
+              </button>
+            </div>
           </form>
 
           <form action={acceptAction}>
