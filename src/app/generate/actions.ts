@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requestStructuredOutput } from "@/lib/claude";
+import { persistWorkoutStructure } from "@/lib/persist-workout-structure";
 import {
   workoutSuggestionSchema,
   multiDaySuggestionSchema,
@@ -629,95 +630,6 @@ export async function reviseWorkoutSuggestionAction(
   }
 }
 
-// Framework-agnostic: creates the WorkoutSession/WorkoutBlock/WorkoutExercise
-// rows for an accepted suggestion and returns the new session id. Kept
-// separate from acceptWorkoutSuggestionAction (which handles auth, FormData,
-// and the redirect) so the persistence logic can be exercised directly.
-export async function persistWorkoutSuggestion(
-  userId: string,
-  suggestion: WorkoutSuggestion,
-  date: Date,
-  planId?: string,
-) {
-  // Resolve/create every referenced exercise up front, outside the
-  // transaction and in parallel. Previously this looped one upsert + one
-  // WorkoutExercise create per exercise *inside* the transaction, so a
-  // larger suggestion (multiple blocks, several exercises each) meant many
-  // sequential round trips - easily enough to blow past Prisma's 5s
-  // interactive-transaction timeout (P2028) under normal network latency.
-  // Doing it here means an upsert can't be rolled back by a later failure
-  // in the transaction, but a stray unused library exercise is harmless -
-  // it just gets reused if the same generation is retried.
-  const exercisesByName = new Map(
-    suggestion.blocks
-      .flatMap((block) => block.exercises)
-      .map((exercise) => [exercise.name, exercise]),
-  );
-  const resolvedExercises = await Promise.all(
-    Array.from(exercisesByName.values()).map((exercise) =>
-      prisma.exercise.upsert({
-        where: { userId_name: { userId, name: exercise.name } },
-        update: {},
-        create: {
-          userId,
-          name: exercise.name,
-          muscleGroup: exercise.muscleGroup,
-          defaultSetType: exercise.suggestedSet.setType,
-        },
-      }),
-    ),
-  );
-  const exerciseIdByName = new Map(
-    resolvedExercises.map((exercise) => [exercise.name, exercise.id]),
-  );
-
-  return prisma.$transaction(
-    async (tx) => {
-      const workoutSession = await tx.workoutSession.create({
-        data: {
-          userId,
-          date,
-          status: "PLANNED",
-          type: "STRENGTH",
-          label: suggestion.label,
-          source: "AI_GENERATED",
-          planId,
-        },
-      });
-
-      // Batched instead of one create per block/exercise - the transaction
-      // now does a fixed 3 round trips regardless of suggestion size.
-      const createdBlocks = await tx.workoutBlock.createManyAndReturn({
-        data: suggestion.blocks.map((block, blockIndex) => ({
-          sessionId: workoutSession.id,
-          order: blockIndex,
-          roundCount: block.roundCount,
-          restSeconds: block.restSeconds,
-        })),
-      });
-      const blockIdByOrder = new Map(
-        createdBlocks.map((block) => [block.order, block.id]),
-      );
-
-      await tx.workoutExercise.createMany({
-        data: suggestion.blocks.flatMap((block, blockIndex) =>
-          block.exercises.map((exercise, exerciseIndex) => ({
-            blockId: blockIdByOrder.get(blockIndex)!,
-            exerciseId: exerciseIdByName.get(exercise.name)!,
-            order: exerciseIndex,
-            targetReps: exercise.suggestedSet.reps,
-            targetDurationSeconds: exercise.suggestedSet.durationSeconds,
-            targetDistanceMeters: exercise.suggestedSet.distanceMeters,
-          })),
-        ),
-      });
-
-      return workoutSession.id;
-    },
-    { timeout: 15000 },
-  );
-}
-
 export type AcceptFormState = { error?: string } | undefined;
 
 export async function acceptWorkoutSuggestionAction(
@@ -753,7 +665,7 @@ export async function acceptWorkoutSuggestionAction(
     };
   }
 
-  const newSessionId = await persistWorkoutSuggestion(
+  const newSessionId = await persistWorkoutStructure(
     session.user.id,
     parsed.data,
     parsedDate.data,
@@ -809,11 +721,11 @@ export async function acceptDayInPlanAction(
     return { error: "Missing plan." };
   }
 
-  const newSessionId = await persistWorkoutSuggestion(
+  const newSessionId = await persistWorkoutStructure(
     session.user.id,
     parsed.data,
     parsedDate.data,
-    parsedPlanId.data,
+    { planId: parsedPlanId.data },
   );
 
   return { sessionId: newSessionId };
