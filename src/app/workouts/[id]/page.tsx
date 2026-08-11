@@ -8,6 +8,7 @@ import { BlocksManager } from "./blocks-manager";
 import { FinishWorkoutForm } from "./finish-workout-form";
 import { FeedbackSummary } from "./feedback-summary";
 import { StartWorkoutButton } from "./start-workout-button";
+import { SaveAsTemplateForm } from "./save-as-template-form";
 
 const STATUS_LABELS: Record<WorkoutSession["status"], string> = {
   PLANNED: "Planned",
@@ -104,6 +105,10 @@ export default async function WorkoutSessionPage({
               {STATUS_LABELS[workoutSession.status].toLowerCase()}.
             </p>
           </>
+        )}
+
+        {workoutSession.status !== "DISCARDED" && (
+          <SaveAsTemplateForm sessionId={workoutSession.id} />
         )}
       </div>
     </main>

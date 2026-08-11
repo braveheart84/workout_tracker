@@ -15,10 +15,12 @@ export function GenerateForm({
   todayIso,
   maxIso,
   defaultDateIso,
+  templates,
 }: {
   todayIso: string;
   maxIso: string;
   defaultDateIso: string;
+  templates: { id: string; name: string; structure: WorkoutSuggestion }[];
 }) {
   const [genState, genAction, genPending] = useActionState<
     GenerateFormState,
@@ -48,6 +50,10 @@ export function GenerateForm({
   // clicked (each specifies its own formAction), not by which of two
   // separate boxes the text sits in.
   const [feedbackText, setFeedbackText] = useState("");
+  // Controlled (rather than defaultValue) so "Use Template" below can read
+  // whichever date the user currently has picked, without a ref.
+  const [dateValue, setDateValue] = useState(defaultDateIso);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [prevGenState, setPrevGenState] = useState(genState);
   if (genState !== prevGenState) {
     setPrevGenState(genState);
@@ -83,12 +89,53 @@ export function GenerateForm({
               id="date"
               type="date"
               name="date"
-              defaultValue={defaultDateIso}
+              value={dateValue}
+              onChange={(e) => setDateValue(e.target.value)}
               min={todayIso}
               max={maxIso}
               className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
+          {templates.length > 0 && (
+            <div className="space-y-1 rounded-md border p-3">
+              <label htmlFor="templateId" className="text-sm font-medium">
+                Or start from a saved template
+              </label>
+              <div className="flex gap-2">
+                <select
+                  id="templateId"
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  className="border-input bg-background flex-1 rounded-md border px-3 py-2 text-sm"
+                >
+                  <option value="">Choose a template…</option>
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!selectedTemplateId}
+                  onClick={() => {
+                    const template = templates.find(
+                      (t) => t.id === selectedTemplateId,
+                    );
+                    if (!template) return;
+                    setCurrent({
+                      suggestion: template.structure,
+                      date: dateValue,
+                    });
+                    setSelectedTemplateId("");
+                  }}
+                  className="border-input rounded-md border px-3 py-2 text-sm font-medium whitespace-nowrap disabled:opacity-50"
+                >
+                  Use Template
+                </button>
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <label htmlFor="freeText" className="text-sm font-medium">
               How are you feeling? What do you want to work on? (optional)

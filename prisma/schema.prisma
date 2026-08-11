@@ -52,9 +52,10 @@ model User {
   remindersEnabled Boolean    @default(true) @map("reminders_enabled")
   createdAt        DateTime   @default(now()) @map("created_at")
 
-  exercises       Exercise[]
-  workoutSessions WorkoutSession[]
-  workoutPlans    WorkoutPlan[]
+  exercises        Exercise[]
+  workoutSessions  WorkoutSession[]
+  workoutPlans     WorkoutPlan[]
+  workoutTemplates WorkoutTemplate[]
 
   @@map("users")
 }
@@ -122,6 +123,29 @@ model WorkoutPlan {
   workoutSessions WorkoutSession[]
 
   @@map("workout_plans")
+}
+
+// PRD Section 9 (WorkoutTemplate) - a named, reusable snapshot of a
+// session's blocks/exercises/target sets (PR-20), saved explicitly from any
+// accepted or completed session via "Save as Template." `structure` mirrors
+// the same shape used for an AI suggestion (see workout-suggestion-schema.ts)
+// so a template can be dropped straight into the existing suggestion
+// review/accept UI as a generation shortcut, with no separate rendering
+// path needed. `createdFromSessionId` is provenance only, not a FK - the
+// source session isn't deletable today and a template is meant to outlive
+// it either way. `focus_tags` from the PRD's schema sketch isn't added yet -
+// unused until PR-21's focus-area shortcut.
+model WorkoutTemplate {
+  id                   String   @id @default(uuid())
+  userId               String   @map("user_id")
+  name                 String
+  structure            Json
+  createdFromSessionId String?  @map("created_from_session_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("workout_templates")
 }
 
 // PRD Section 9 (WorkoutBlock) - groups one or more exercises done together

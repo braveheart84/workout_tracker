@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { WorkoutSuggestion } from "@/lib/workout-suggestion-schema";
 import { GenerateForm } from "./generate-form";
 import { MultiDayGenerateForm } from "./multi-day-generate-form";
 import { ImportWorkoutForm } from "./import-workout-form";
@@ -13,10 +14,12 @@ export function GenerateModeToggle({
   todayIso,
   maxIso,
   defaultDateIso,
+  templates,
 }: {
   todayIso: string;
   maxIso: string;
   defaultDateIso: string;
+  templates: { id: string; name: string; structure: WorkoutSuggestion }[];
 }) {
   const [mode, setMode] = useState<"single" | "multi" | "import">("single");
 
@@ -62,6 +65,7 @@ export function GenerateModeToggle({
           todayIso={todayIso}
           maxIso={maxIso}
           defaultDateIso={defaultDateIso}
+          templates={templates}
         />
       ) : mode === "multi" ? (
         <MultiDayGenerateForm todayIso={todayIso} />

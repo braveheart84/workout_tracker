@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { workoutSuggestionSchema } from "@/lib/workout-suggestion-schema";
 import { GenerateModeToggle } from "./generate-mode-toggle";
 
 export default async function GeneratePage({
@@ -35,6 +37,23 @@ export default async function GeneratePage({
       ? requestedDate
       : todayIso;
 
+  // PRD 7.2: "start from a saved template" as a generation shortcut -
+  // single-day only for now (PR-20 doesn't depend on PR-16's multi-day
+  // scope). Invalid rows (structure fails the current schema) are dropped
+  // rather than surfaced as an error - they're just not offered as a
+  // shortcut, same as any other defensive parse of stored JSON.
+  const templateRows = await prisma.workoutTemplate.findMany({
+    where: { userId: session.user.id },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, structure: true },
+  });
+  const templates = templateRows.flatMap((t) => {
+    const parsed = workoutSuggestionSchema.safeParse(t.structure);
+    return parsed.success
+      ? [{ id: t.id, name: t.name, structure: parsed.data }]
+      : [];
+  });
+
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
       <div className="w-full max-w-lg space-y-6">
@@ -50,6 +69,7 @@ export default async function GeneratePage({
           todayIso={todayIso}
           maxIso={maxIso}
           defaultDateIso={defaultDateIso}
+          templates={templates}
         />
       </div>
     </main>

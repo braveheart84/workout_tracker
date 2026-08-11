@@ -121,6 +121,9 @@ export default async function DashboardPage() {
         <Link href="/exercises" className="underline">
           Exercise library
         </Link>
+        <Link href="/templates" className="underline">
+          Templates
+        </Link>
         <Link href="/settings" className="underline">
           Account settings
         </Link>
