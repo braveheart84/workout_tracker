@@ -15,11 +15,13 @@ export function GenerateModeToggle({
   maxIso,
   defaultDateIso,
   templates,
+  baselineSessions,
 }: {
   todayIso: string;
   maxIso: string;
   defaultDateIso: string;
   templates: { id: string; name: string; structure: WorkoutSuggestion }[];
+  baselineSessions: { id: string; dateIso: string; label: string | null }[];
 }) {
   const [mode, setMode] = useState<"single" | "multi" | "import">("single");
 
@@ -68,7 +70,10 @@ export function GenerateModeToggle({
           templates={templates}
         />
       ) : mode === "multi" ? (
-        <MultiDayGenerateForm todayIso={todayIso} />
+        <MultiDayGenerateForm
+          todayIso={todayIso}
+          baselineSessions={baselineSessions}
+        />
       ) : (
         <ImportWorkoutForm
           todayIso={todayIso}
