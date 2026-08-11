@@ -14,9 +14,11 @@ import {
 export function GenerateForm({
   todayIso,
   maxIso,
+  defaultDateIso,
 }: {
   todayIso: string;
   maxIso: string;
+  defaultDateIso: string;
 }) {
   const [genState, genAction, genPending] = useActionState<
     GenerateFormState,
@@ -62,7 +64,7 @@ export function GenerateForm({
   }
 
   const suggestion = current?.suggestion;
-  const suggestionDate = current?.date ?? todayIso;
+  const suggestionDate = current?.date ?? defaultDateIso;
 
   return (
     <div className="space-y-4">
@@ -75,7 +77,7 @@ export function GenerateForm({
             id="date"
             type="date"
             name="date"
-            defaultValue={todayIso}
+            defaultValue={defaultDateIso}
             min={todayIso}
             max={maxIso}
             className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"

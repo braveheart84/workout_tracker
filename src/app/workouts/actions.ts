@@ -93,6 +93,70 @@ export async function updateWorkoutSessionAction(
   return { success: true };
 }
 
+// PRD 7.3 "skipped days": a planned session whose date has passed without
+// ever being started. Reschedule just moves its date; no upper bound like
+// generation's 7-day window, since this is repositioning an already-planned
+// session rather than asking the LLM to generate one.
+const rescheduleDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
+  .transform((v) => new Date(`${v}T00:00:00.000Z`))
+  .refine((d) => !Number.isNaN(d.getTime()), "Pick a valid date.")
+  .refine((d) => {
+    const now = new Date();
+    const todayUtc = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    return d >= todayUtc;
+  }, "Pick today or a future date.");
+
+export type RescheduleFormState = { error?: string } | undefined;
+
+export async function rescheduleSkippedSessionAction(
+  id: string,
+  _prevState: RescheduleFormState,
+  formData: FormData,
+): Promise<RescheduleFormState> {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "You must be logged in." };
+  }
+
+  const parsed = rescheduleDateSchema.safeParse(formData.get("date"));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Pick a valid date." };
+  }
+
+  const result = await prisma.workoutSession.updateMany({
+    where: { id, userId: session.user.id, status: "PLANNED" },
+    data: { date: parsed.data },
+  });
+  if (result.count === 0) {
+    return { error: "Workout not found or no longer pending." };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/history");
+  revalidatePath("/week");
+  return undefined;
+}
+
+export async function discardSkippedSessionAction(id: string) {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  await prisma.workoutSession.updateMany({
+    where: { id, userId: session.user.id, status: "PLANNED" },
+    data: { status: "DISCARDED" },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/history");
+  revalidatePath("/week");
+}
+
 function optionalRating(min: number, max: number, label: string) {
   return z.preprocess(
     (v) => (v === null || v === "" ? null : v),

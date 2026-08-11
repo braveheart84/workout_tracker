@@ -10,9 +10,11 @@ import { MultiDayGenerateForm } from "./multi-day-generate-form";
 export function GenerateModeToggle({
   todayIso,
   maxIso,
+  defaultDateIso,
 }: {
   todayIso: string;
   maxIso: string;
+  defaultDateIso: string;
 }) {
   const [mode, setMode] = useState<"single" | "multi">("single");
 
@@ -43,7 +45,11 @@ export function GenerateModeToggle({
         </button>
       </div>
       {mode === "single" ? (
-        <GenerateForm todayIso={todayIso} maxIso={maxIso} />
+        <GenerateForm
+          todayIso={todayIso}
+          maxIso={maxIso}
+          defaultDateIso={defaultDateIso}
+        />
       ) : (
         <MultiDayGenerateForm todayIso={todayIso} />
       )}
