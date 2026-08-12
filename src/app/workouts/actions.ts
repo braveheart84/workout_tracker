@@ -223,6 +223,14 @@ export async function finishWorkoutSessionAction(
     return { error: "Workout not found or already finished." };
   }
 
-  revalidatePath(`/workouts/${id}`);
+  // Deliberately no revalidatePath call here, on this or any other path -
+  // per Next's Server Actions model, calling revalidatePath/updateTag/
+  // refresh from an action re-renders the *invoking* route (this one,
+  // /workouts/[id]) as part of the same response regardless of which path
+  // string is passed. That would swap the now-COMPLETED session's parent
+  // Server Component render in before FinishWorkoutForm's own "just
+  // finished" splash state ever gets a chance to show. The client instead
+  // does a hard navigation to /dashboard after the splash, which always
+  // fetches fresh regardless of any client-side route cache.
   return { success: true };
 }

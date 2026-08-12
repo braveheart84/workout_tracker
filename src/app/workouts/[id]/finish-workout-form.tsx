@@ -1,18 +1,51 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import {
   finishWorkoutSessionAction,
   type FinishWorkoutFormState,
 } from "../actions";
 import { DIFFICULTY_LABELS } from "@/lib/difficulty";
 
+// How long the "Workout Complete" splash stays up before redirecting home -
+// long enough to register as a deliberate confirmation, short enough not to
+// feel like a delay.
+const REDIRECT_DELAY_MS = 1800;
+
 export function FinishWorkoutForm({ sessionId }: { sessionId: string }) {
+  const router = useRouter();
   const boundFinish = finishWorkoutSessionAction.bind(null, sessionId);
   const [state, formAction, pending] = useActionState<
     FinishWorkoutFormState,
     FormData
   >(boundFinish, undefined);
+
+  useEffect(() => {
+    if (!state?.success) return;
+    const timeout = setTimeout(() => {
+      // finishWorkoutSessionAction deliberately skips revalidatePath (see
+      // its own comment) so this splash isn't swapped out before it shows -
+      // which means /dashboard's client-side route cache was never told
+      // anything changed. router.refresh() right after push guarantees the
+      // destination isn't served a stale cached copy from before this
+      // workout was completed.
+      router.push("/dashboard");
+      router.refresh();
+    }, REDIRECT_DELAY_MS);
+    return () => clearTimeout(timeout);
+  }, [state?.success, router]);
+
+  if (state?.success) {
+    return (
+      <div className="bg-background fixed inset-0 z-50 flex flex-col items-center justify-center gap-3">
+        <CheckCircle2 className="h-16 w-16 text-emerald-500" />
+        <p className="text-xl font-semibold">Workout Complete!</p>
+        <p className="text-muted-foreground text-sm">Nice work.</p>
+      </div>
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-4 rounded-md border p-4">
