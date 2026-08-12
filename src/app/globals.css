@@ -84,3 +84,17 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* iOS Safari auto-zooms the whole page on focus for any text input whose
+   font-size is under 16px, and doesn't reliably zoom back out afterward -
+   which is what made the login/signup fields (styled text-sm, 14px) leave
+   the page zoomed in after logging in. Deliberately outside @layer so it
+   overrides text-sm/text-xs on inputs everywhere without needing
+   !important or touching every form individually - unlayered rules always
+   beat Tailwind's layered utilities in the cascade regardless of source
+   order or specificity. */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
