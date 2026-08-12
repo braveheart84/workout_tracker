@@ -12,6 +12,14 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.user.id },
+    select: { onboardingCompletedAt: true },
+  });
+  if (!user.onboardingCompletedAt) {
+    redirect("/onboarding");
+  }
+
   const now = new Date();
   const todayStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
