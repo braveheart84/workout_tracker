@@ -37,7 +37,7 @@ export async function signupAction(
   await prisma.user.create({ data: { email, passwordHash } });
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
+    await signIn("credentials", { email, password, redirectTo: "/onboarding" });
   } catch (error) {
     if (error instanceof AuthError) {
       return {

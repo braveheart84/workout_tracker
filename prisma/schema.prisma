@@ -84,7 +84,10 @@ enum Equipment {
 // availableEquipment/avoidedExercisesNote are standing generation
 // preferences - captured once here instead of the user having to restate
 // them (session length, cardio finisher, equipment, injuries/dislikes) in
-// free text on every single generation request.
+// free text on every single generation request. onboardingCompletedAt is
+// null until the new-user onboarding wizard is finished OR explicitly
+// skipped - either one is terminal, so the dashboard only redirects into
+// onboarding while it's still null.
 model User {
   id                       String                   @id @default(uuid())
   email                    String                   @unique
@@ -95,6 +98,7 @@ model User {
   cardioFinisherPreference CardioFinisherPreference @default(SOMETIMES) @map("cardio_finisher_preference")
   availableEquipment       Equipment[]              @map("available_equipment")
   avoidedExercisesNote     String?                  @map("avoided_exercises_note")
+  onboardingCompletedAt    DateTime?                @map("onboarding_completed_at")
   createdAt                DateTime                 @default(now()) @map("created_at")
 
   exercises        Exercise[]
