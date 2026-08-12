@@ -8,6 +8,7 @@ import { BlocksManager } from "./blocks-manager";
 import { FinishWorkoutForm } from "./finish-workout-form";
 import { FeedbackSummary } from "./feedback-summary";
 import { StartWorkoutButton } from "./start-workout-button";
+import { DiscardPlannedWorkoutButton } from "./discard-planned-workout-button";
 import { SaveAsTemplateForm } from "./save-as-template-form";
 
 const STATUS_LABELS: Record<WorkoutSession["status"], string> = {
@@ -91,7 +92,10 @@ export default async function WorkoutSessionPage({
         {isInProgress ? (
           <FinishWorkoutForm sessionId={workoutSession.id} />
         ) : isPlanned ? (
-          <StartWorkoutButton sessionId={workoutSession.id} />
+          <div className="space-y-2">
+            <StartWorkoutButton sessionId={workoutSession.id} />
+            <DiscardPlannedWorkoutButton sessionId={workoutSession.id} />
+          </div>
         ) : (
           <>
             <FeedbackSummary
