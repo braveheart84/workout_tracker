@@ -12,7 +12,14 @@ export default async function SettingsPage() {
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
-    select: { unitSystem: true, remindersEnabled: true },
+    select: {
+      unitSystem: true,
+      remindersEnabled: true,
+      preferredDurationMinutes: true,
+      cardioFinisherPreference: true,
+      availableEquipment: true,
+      avoidedExercisesNote: true,
+    },
   });
 
   return (
@@ -24,6 +31,10 @@ export default async function SettingsPage() {
         <SettingsForm
           currentUnitSystem={user.unitSystem}
           currentRemindersEnabled={user.remindersEnabled}
+          currentPreferredDurationMinutes={user.preferredDurationMinutes}
+          currentCardioFinisherPreference={user.cardioFinisherPreference}
+          currentAvailableEquipment={user.availableEquipment}
+          currentAvoidedExercisesNote={user.avoidedExercisesNote}
         />
         <div className="h-20" aria-hidden="true" />
       </div>

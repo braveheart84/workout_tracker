@@ -92,6 +92,53 @@ async function getLibraryLines(userId: string) {
   );
 }
 
+async function getUserPreferences(userId: string) {
+  return prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: {
+      preferredDurationMinutes: true,
+      cardioFinisherPreference: true,
+      availableEquipment: true,
+      avoidedExercisesNote: true,
+    },
+  });
+}
+
+// Formats the standing Account settings preferences into prompt text.
+// Equipment and avoided-exercises are hard constraints - threaded into
+// revision too (a revision shouldn't suggest something the user can't do
+// or explicitly ruled out), unlike duration/cardio-finisher, which are
+// whole-session-shape preferences only relevant to a full generation.
+function formatPreferenceLines(preferences: {
+  preferredDurationMinutes: number | null;
+  cardioFinisherPreference: "ALWAYS" | "NEVER" | "SOMETIMES";
+  availableEquipment: string[];
+  avoidedExercisesNote: string | null;
+}) {
+  const durationLine =
+    preferences.preferredDurationMinutes != null
+      ? `Target session length: about ${preferences.preferredDurationMinutes} minutes total (including work and rest) - size the number of blocks/rounds/rest periods to roughly fit; it doesn't need to be exact.`
+      : null;
+
+  const cardioFinisherLine =
+    preferences.cardioFinisherPreference === "ALWAYS"
+      ? "The user always wants a short cardio finisher block at the end of a strength session."
+      : preferences.cardioFinisherPreference === "NEVER"
+        ? "The user never wants a cardio finisher block - keep the session focused on the main work only."
+        : null;
+
+  const equipmentLine =
+    preferences.availableEquipment.length > 0
+      ? `Only suggest exercises usable with this equipment: ${preferences.availableEquipment.join(", ")}.`
+      : null;
+
+  const avoidLine = preferences.avoidedExercisesNote
+    ? `The user has asked to avoid: ${preferences.avoidedExercisesNote}. Do not suggest exercises that conflict with this.`
+    : null;
+
+  return { durationLine, cardioFinisherLine, equipmentLine, avoidLine };
+}
+
 // PRD 7.2: "consistently 'too easy' ratings ... should nudge the next
 // suggestion's load/pace/volume up, and 'too hard' ratings should ease it
 // back." Session-level only (the average across recent completed sessions,
@@ -272,7 +319,7 @@ async function buildGenerationContext(userId: string) {
   const fourteenDaysAgo = new Date();
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-  const [recentSessions, libraryLines] = await Promise.all([
+  const [recentSessions, libraryLines, preferences] = await Promise.all([
     prisma.workoutSession.findMany({
       where: { userId, status: "COMPLETED", date: { gte: fourteenDaysAgo } },
       orderBy: { date: "desc" },
@@ -285,6 +332,7 @@ async function buildGenerationContext(userId: string) {
       },
     }),
     getLibraryLines(userId),
+    getUserPreferences(userId),
   ]);
 
   const historyLines = recentSessions.map((workoutSession) => {
@@ -313,12 +361,18 @@ async function buildGenerationContext(userId: string) {
 
   const difficultyTrendLine = summarizeDifficultyTrend(recentSessions);
   const performanceDeltaLines = summarizePerformanceDeltas(recentSessions);
+  const { durationLine, cardioFinisherLine, equipmentLine, avoidLine } =
+    formatPreferenceLines(preferences);
 
   return {
     historyLines,
     libraryLines,
     difficultyTrendLine,
     performanceDeltaLines,
+    durationLine,
+    cardioFinisherLine,
+    equipmentLine,
+    avoidLine,
   };
 }
 
@@ -382,6 +436,54 @@ async function getBaselineSessionLines(userId: string, sessionId: string) {
   };
 }
 
+type PreferenceLines = {
+  durationLine: string | null;
+  cardioFinisherLine: string | null;
+  equipmentLine: string | null;
+  avoidLine: string | null;
+};
+
+// Shared by every prompt that includes standing preference context: the
+// system-instruction sentences telling the model to honor them, and the
+// prompt-body lines stating what they actually are.
+function preferenceSystemLines(preferences: PreferenceLines): string[] {
+  const lines: string[] = [];
+  if (preferences.durationLine) {
+    lines.push(
+      "If a target session length is given, use it to size the workout.",
+    );
+  }
+  if (preferences.cardioFinisherLine) {
+    lines.push(
+      "If the user has a fixed cardio-finisher preference, honor it exactly rather than deciding case by case.",
+    );
+  }
+  if (preferences.equipmentLine) {
+    lines.push(
+      "If the user's available equipment is given, treat it as a hard constraint - never suggest an exercise that needs equipment outside that list.",
+    );
+  }
+  if (preferences.avoidLine) {
+    lines.push(
+      "If the user has exercises to avoid, treat that as a hard constraint too.",
+    );
+  }
+  return lines;
+}
+
+function preferencePromptLines(preferences: PreferenceLines): string[] {
+  return [
+    preferences.durationLine ?? "Target session length: no preference given.",
+    "",
+    preferences.cardioFinisherLine ??
+      "Cardio finisher: no fixed preference given.",
+    "",
+    preferences.equipmentLine ?? "Available equipment: no preference given.",
+    "",
+    preferences.avoidLine ?? "Exercises to avoid: none given.",
+  ];
+}
+
 function buildPrompt(
   freeText: string,
   targetDate: Date,
@@ -389,6 +491,7 @@ function buildPrompt(
   libraryLines: string[],
   difficultyTrendLine: string | null,
   performanceDeltaLines: string[],
+  preferences: PreferenceLines,
 ) {
   const system = [
     "You are a fitness coaching assistant inside a workout tracking app.",
@@ -398,6 +501,7 @@ function buildPrompt(
     "Avoid heavily repeating muscle groups the user trained in the last 1-2 days, if that history is available.",
     "If a recent difficulty-rating trend is given, use it to adjust intensity: a trend toward easy ratings means nudge load/volume/pace up from what's typical for this user, a trend toward hard ratings means ease it back, and an about-right trend means keep a similar intensity.",
     "If suggested-vs-actual performance is given for a specific exercise, use it to calibrate that exercise's own target ahead of the general difficulty trend: running ahead of its suggested target means nudge that exercise's target up, falling short means ease it back, and roughly matching means keep it about the same.",
+    ...preferenceSystemLines(preferences),
   ].join(" ");
 
   const targetDateLabel = targetDate.toLocaleDateString("en-US", {
@@ -427,6 +531,8 @@ function buildPrompt(
       ? `Suggested-vs-actual performance per exercise (last 14 days):\n${performanceDeltaLines.join("\n")}`
       : "Suggested-vs-actual performance per exercise: not enough logged data yet.",
     "",
+    ...preferencePromptLines(preferences),
+    "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
       : "User's existing exercise library: empty.",
@@ -440,6 +546,8 @@ function buildRevisionPrompt(
   feedback: string,
   targetDate: Date,
   libraryLines: string[],
+  equipmentLine: string | null,
+  avoidLine: string | null,
 ) {
   const system = [
     "You are a fitness coaching assistant inside a workout tracking app.",
@@ -447,6 +555,14 @@ function buildRevisionPrompt(
     "Apply the requested change and return the complete revised workout structure matching the provided tool schema - not just the changed parts.",
     "Keep everything else about the workout the same unless the requested change reasonably requires other adjustments (e.g. swapping an exercise for one working the same muscle group, or only touching the rounds/rest of the block the feedback is about).",
     "When you land on an exercise that's essentially the same movement as one already in the user's library, use that exact library name instead of inventing a near-duplicate - but the library is a naming-consistency aid only, not a menu to pick from.",
+    ...(equipmentLine
+      ? [
+          "The user's available equipment is a hard constraint - never suggest an exercise that needs equipment outside it, even to satisfy the requested change.",
+        ]
+      : []),
+    ...(avoidLine
+      ? ["The user's exercises-to-avoid list is a hard constraint too."]
+      : []),
   ].join(" ");
 
   const targetDateLabel = targetDate.toLocaleDateString("en-US", {
@@ -463,6 +579,10 @@ function buildRevisionPrompt(
     `Current suggested workout:\n${JSON.stringify(currentSuggestion)}`,
     "",
     `Requested change: ${feedback}`,
+    "",
+    equipmentLine ?? "Available equipment: no preference given.",
+    "",
+    avoidLine ?? "Exercises to avoid: none given.",
     "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
@@ -523,6 +643,7 @@ function buildMultiDayPrompt(
   performanceDeltaLines: string[],
   focusTags: string[],
   baseline: { label: string; dateIso: string; lines: string[] } | null,
+  preferences: PreferenceLines,
 ) {
   const numDays = dates.length;
   const system = [
@@ -538,6 +659,8 @@ function buildMultiDayPrompt(
     "If suggested-vs-actual performance is given for a specific exercise, use it to calibrate that exercise's own target ahead of the general difficulty trend: running ahead of its suggested target means nudge that exercise's target up, falling short means ease it back, and roughly matching means keep it about the same.",
     "If one or more focus areas are given, steer the kind of session(s) you propose toward them (e.g. more strength-style blocks for 'strength', more continuous/cardio work for 'cardio', short-rest circuits for 'HIIT', stretching/control work for 'mobility') without dictating the exact exercises chosen.",
     "If a baseline workout is given, the user wants this plan to follow its structure and exercise choices as a starting point - reuse its exercises and block shape where sensible, varied and repeated across the requested days as fits the day count, and adjusted per any difficulty-trend/performance-delta context above. Don't just copy it verbatim for every day.",
+    "Each preference below applies to every day in the plan, not just one.",
+    ...preferenceSystemLines(preferences),
   ].join(" ");
 
   const dateLines = dates.map((date, index) => {
@@ -577,6 +700,8 @@ function buildMultiDayPrompt(
     performanceDeltaLines.length > 0
       ? `Suggested-vs-actual performance per exercise (last 14 days):\n${performanceDeltaLines.join("\n")}`
       : "Suggested-vs-actual performance per exercise: not enough logged data yet.",
+    "",
+    ...preferencePromptLines(preferences),
     "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
@@ -618,6 +743,10 @@ export async function generateWorkoutSuggestionAction(
     libraryLines,
     difficultyTrendLine,
     performanceDeltaLines,
+    durationLine,
+    cardioFinisherLine,
+    equipmentLine,
+    avoidLine,
   } = await buildGenerationContext(session.user.id);
   const { system, prompt } = buildPrompt(
     freeText,
@@ -626,6 +755,7 @@ export async function generateWorkoutSuggestionAction(
     libraryLines,
     difficultyTrendLine,
     performanceDeltaLines,
+    { durationLine, cardioFinisherLine, equipmentLine, avoidLine },
   );
 
   try {
@@ -776,6 +906,10 @@ export async function generateWorkoutPlanAction(
     libraryLines,
     difficultyTrendLine,
     performanceDeltaLines,
+    durationLine,
+    cardioFinisherLine,
+    equipmentLine,
+    avoidLine,
   } = await buildGenerationContext(session.user.id);
   const { system, prompt } = buildMultiDayPrompt(
     freeText,
@@ -786,6 +920,7 @@ export async function generateWorkoutPlanAction(
     performanceDeltaLines,
     focusTags,
     baseline,
+    { durationLine, cardioFinisherLine, equipmentLine, avoidLine },
   );
 
   try {
@@ -884,12 +1019,15 @@ export async function reviseWorkoutSuggestionAction(
   const targetDate = parsedDate.data;
   const dateIso = targetDate.toISOString().slice(0, 10);
 
-  const { libraryLines } = await buildGenerationContext(session.user.id);
+  const { libraryLines, equipmentLine, avoidLine } =
+    await buildGenerationContext(session.user.id);
   const { system, prompt } = buildRevisionPrompt(
     parsedCurrent.data,
     parsedFeedback.data,
     targetDate,
     libraryLines,
+    equipmentLine,
+    avoidLine,
   );
 
   try {
