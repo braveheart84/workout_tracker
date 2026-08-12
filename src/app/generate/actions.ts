@@ -92,6 +92,22 @@ async function getLibraryLines(userId: string) {
   );
 }
 
+// Shared verbatim by buildPrompt and buildMultiDayPrompt, which previously
+// carried identical copies that could drift out of sync when tuned in only
+// one place. buildRevisionPrompt uses its own shorter variant deliberately -
+// it isn't seeking variety, just naming consistency for the one exercise
+// being touched - so it isn't folded into this constant.
+const LIBRARY_NAMING_GUIDANCE =
+  "When you land on an exercise that's essentially the same movement as one already in the user's library, use that exact library name instead of inventing a near-duplicate (e.g. 'Back Squat' rather than a new 'Barbell Squat' entry) - but treat the library as a naming-consistency aid only, not a menu to pick from: don't let it limit variety, and introducing an exercise the user hasn't logged before is often the better call, especially for accessory, core, and finisher work.";
+
+// Difficulty-trend/performance-delta calibration (see below) only ever
+// nudges intensity relative to "what's typical for this user" - with little
+// or no history to establish that baseline, there's nothing safe to nudge
+// away from, so the model should land on a moderate starting point rather
+// than guessing aggressively.
+const CONSERVATIVE_DEFAULT_GUIDANCE =
+  "When recent history, difficulty ratings, or performance data are sparse or unavailable, default to a moderate, conservative starting point for load, volume, and pace rather than an aggressive one - it's a smaller problem for the user to report a session felt easy than to overreach on limited information.";
+
 async function getUserPreferences(userId: string) {
   return prisma.user.findUniqueOrThrow({
     where: { id: userId },
@@ -450,7 +466,7 @@ function preferenceSystemLines(preferences: PreferenceLines): string[] {
   const lines: string[] = [];
   if (preferences.durationLine) {
     lines.push(
-      "If a target session length is given, use it to size the workout.",
+      "If a target session length is given, use it to size the workout - but if the user's request states a different session length for this workout, that overrides the target session length for this generation only.",
     );
   }
   if (preferences.cardioFinisherLine) {
@@ -496,11 +512,12 @@ function buildPrompt(
   const system = [
     "You are a fitness coaching assistant inside a workout tracking app.",
     "Generate a single day's workout as a structured suggestion matching the provided tool schema.",
-    "When you land on an exercise that's essentially the same movement as one already in the user's library, use that exact library name instead of inventing a near-duplicate (e.g. 'Back Squat' rather than a new 'Barbell Squat' entry) - but treat the library as a naming-consistency aid only, not a menu to pick from: don't let it limit variety, and introducing an exercise the user hasn't logged before is often the better call, especially for accessory, core, and finisher work.",
+    LIBRARY_NAMING_GUIDANCE,
     "Keep the workout realistic in scope: 1-6 blocks, each with 1-5 exercises, sensible round counts (1-5), and sensible rest periods.",
     "Avoid heavily repeating muscle groups the user trained in the last 1-2 days, if that history is available.",
     "If a recent difficulty-rating trend is given, use it to adjust intensity: a trend toward easy ratings means nudge load/volume/pace up from what's typical for this user, a trend toward hard ratings means ease it back, and an about-right trend means keep a similar intensity.",
     "If suggested-vs-actual performance is given for a specific exercise, use it to calibrate that exercise's own target ahead of the general difficulty trend: running ahead of its suggested target means nudge that exercise's target up, falling short means ease it back, and roughly matching means keep it about the same.",
+    CONSERVATIVE_DEFAULT_GUIDANCE,
     ...preferenceSystemLines(preferences),
   ].join(" ");
 
@@ -548,6 +565,7 @@ function buildRevisionPrompt(
   libraryLines: string[],
   equipmentLine: string | null,
   avoidLine: string | null,
+  durationLine: string | null,
 ) {
   const system = [
     "You are a fitness coaching assistant inside a workout tracking app.",
@@ -562,6 +580,11 @@ function buildRevisionPrompt(
       : []),
     ...(avoidLine
       ? ["The user's exercises-to-avoid list is a hard constraint too."]
+      : []),
+    ...(durationLine
+      ? [
+          "The user's target session length below is for reference only, not a hard constraint - a requested change that shortens or lengthens the workout should still be applied even if it moves away from that target.",
+        ]
       : []),
   ].join(" ");
 
@@ -583,6 +606,8 @@ function buildRevisionPrompt(
     equipmentLine ?? "Available equipment: no preference given.",
     "",
     avoidLine ?? "Exercises to avoid: none given.",
+    "",
+    durationLine ?? "Target session length: no preference given.",
     "",
     libraryLines.length > 0
       ? `User's existing exercise library:\n${libraryLines.join("\n")}`
@@ -650,13 +675,14 @@ function buildMultiDayPrompt(
     "You are a fitness coaching assistant inside a workout tracking app.",
     `Generate a workout plan as a structured suggestion matching the provided tool schema - exactly ${numDays} entries in "days", one per listed date below, in the same order.`,
     "The listed dates are the days the user has chosen to work out - there may or may not be a rest day between any given pair, which you can tell from the calendar dates themselves. Vary the plan sensibly: avoid repeating the same muscle group between two listed days with no gap between them, and use bigger gaps for more overlap if that suits the user's request.",
-    "When you land on an exercise that's essentially the same movement as one already in the user's library, use that exact library name instead of inventing a near-duplicate (e.g. 'Back Squat' rather than a new 'Barbell Squat' entry) - but treat the library as a naming-consistency aid only, not a menu to pick from: don't let it limit variety, and introducing an exercise the user hasn't logged before is often the better call, especially for accessory, core, and finisher work.",
+    LIBRARY_NAMING_GUIDANCE,
     "Maximize variety across the whole plan: avoid repeating the exact same exercise on more than one of the listed days unless it's a primary compound lift this user's history shows they train very regularly, and even then vary the accessory/core/finisher exercises around it from day to day rather than repeating the same pairing every time.",
     "Keep each day's workout realistic in scope: 1-6 blocks, each with 1-5 exercises, sensible round counts (1-5), and sensible rest periods.",
     "Avoid heavily repeating muscle groups the user trained in the 1-2 days before the first listed date, if that history is available.",
     "Each day's label should describe the workout itself (e.g. its muscle focus or theme), not the day number or date - the app already displays those separately.",
     "If a recent difficulty-rating trend is given, use it to adjust intensity across the whole plan: a trend toward easy ratings means nudge load/volume/pace up from what's typical for this user, a trend toward hard ratings means ease it back, and an about-right trend means keep a similar intensity.",
     "If suggested-vs-actual performance is given for a specific exercise, use it to calibrate that exercise's own target ahead of the general difficulty trend: running ahead of its suggested target means nudge that exercise's target up, falling short means ease it back, and roughly matching means keep it about the same.",
+    CONSERVATIVE_DEFAULT_GUIDANCE,
     "If one or more focus areas are given, steer the kind of session(s) you propose toward them (e.g. more strength-style blocks for 'strength', more continuous/cardio work for 'cardio', short-rest circuits for 'HIIT', stretching/control work for 'mobility') without dictating the exact exercises chosen.",
     "If a baseline workout is given, the user wants this plan to follow its structure and exercise choices as a starting point - reuse its exercises and block shape where sensible, varied and repeated across the requested days as fits the day count, and adjusted per any difficulty-trend/performance-delta context above. Don't just copy it verbatim for every day.",
     "Each preference below applies to every day in the plan, not just one.",
@@ -1019,7 +1045,7 @@ export async function reviseWorkoutSuggestionAction(
   const targetDate = parsedDate.data;
   const dateIso = targetDate.toISOString().slice(0, 10);
 
-  const { libraryLines, equipmentLine, avoidLine } =
+  const { libraryLines, equipmentLine, avoidLine, durationLine } =
     await buildGenerationContext(session.user.id);
   const { system, prompt } = buildRevisionPrompt(
     parsedCurrent.data,
@@ -1028,6 +1054,7 @@ export async function reviseWorkoutSuggestionAction(
     libraryLines,
     equipmentLine,
     avoidLine,
+    durationLine,
   );
 
   try {
