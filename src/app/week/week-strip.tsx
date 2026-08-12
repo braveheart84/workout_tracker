@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Sparkles, Plus } from "lucide-react";
 import type { WorkoutSession } from "@/generated/prisma/client";
 import { startAdHocWorkoutAction } from "@/app/workouts/actions";
 
@@ -96,35 +97,46 @@ export function WeekStrip({ days }: { days: WeekDay[] }) {
         </p>
 
         {selected.primary ? (
-          <Link
-            href={`/workouts/${selected.primary.id}`}
-            className="text-sm underline"
-          >
-            {STATUS_ACTION_LABEL[
-              selected.primary.status as keyof typeof STATUS_ACTION_LABEL
-            ] ?? "View"}{" "}
-            — {selected.primary.label || "Workout"}
-          </Link>
-        ) : (
           <div className="space-y-2">
-            <p className="text-muted-foreground text-sm">
-              No workout planned.
+            <p className="font-medium">{selected.primary.label || "Workout"}</p>
+            <Link
+              href={`/workouts/${selected.primary.id}`}
+              className="bg-primary text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
+            >
+              {STATUS_ACTION_LABEL[
+                selected.primary.status as keyof typeof STATUS_ACTION_LABEL
+              ] ?? "View"}
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="font-medium">
+              No workout planned yet
               {selected.discardedCount > 0 &&
                 ` (${selected.discardedCount} discarded)`}
             </p>
-            <div className="flex gap-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={`/generate?date=${selected.dateIso}`}
-                className="underline"
+                className="bg-primary text-primary-foreground flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium"
               >
+                <Sparkles className="h-4 w-4" />
                 Generate
               </Link>
-              {selected.isToday && (
+              {selected.isToday ? (
                 <form action={startAdHocWorkoutAction}>
-                  <button type="submit" className="underline">
-                    Start ad-hoc
+                  <button
+                    type="submit"
+                    className="border-input flex items-center gap-1.5 rounded-md border px-4 py-2 text-sm font-medium"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Ad-hoc
                   </button>
                 </form>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  Ad-hoc start is only available for today.
+                </p>
               )}
             </div>
           </div>
