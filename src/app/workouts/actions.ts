@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getUserTimezone, todayInTimezone } from "@/lib/user-date";
 
 export async function startAdHocWorkoutAction() {
   const session = await auth();
@@ -12,10 +13,11 @@ export async function startAdHocWorkoutAction() {
     redirect("/login");
   }
 
+  const timezone = await getUserTimezone();
   const workoutSession = await prisma.workoutSession.create({
     data: {
       userId: session.user.id,
-      date: new Date(),
+      date: todayInTimezone(timezone),
       status: "IN_PROGRESS",
       startedAt: new Date(),
     },
@@ -96,19 +98,17 @@ export async function updateWorkoutSessionAction(
 // PRD 7.3 "skipped days": a planned session whose date has passed without
 // ever being started. Reschedule just moves its date; no upper bound like
 // generation's 7-day window, since this is repositioning an already-planned
-// session rather than asking the LLM to generate one.
-const rescheduleDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
-  .transform((v) => new Date(`${v}T00:00:00.000Z`))
-  .refine((d) => !Number.isNaN(d.getTime()), "Pick a valid date.")
-  .refine((d) => {
-    const now = new Date();
-    const todayUtc = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    return d >= todayUtc;
-  }, "Pick today or a future date.");
+// session rather than asking the LLM to generate one. A factory (rather
+// than a static schema) since "today" depends on the user's timezone,
+// which is only known once the action reads it.
+function makeRescheduleDateSchema(todayUtc: Date) {
+  return z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
+    .transform((v) => new Date(`${v}T00:00:00.000Z`))
+    .refine((d) => !Number.isNaN(d.getTime()), "Pick a valid date.")
+    .refine((d) => d >= todayUtc, "Pick today or a future date.");
+}
 
 export type RescheduleFormState = { error?: string } | undefined;
 
@@ -122,6 +122,10 @@ export async function rescheduleSkippedSessionAction(
     return { error: "You must be logged in." };
   }
 
+  const timezone = await getUserTimezone();
+  const rescheduleDateSchema = makeRescheduleDateSchema(
+    todayInTimezone(timezone),
+  );
   const parsed = rescheduleDateSchema.safeParse(formData.get("date"));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Pick a valid date." };

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { BottomNav } from "@/components/bottom-nav";
+import { getUserTimezone, todayInTimezone } from "@/lib/user-date";
 import { WeekStrip } from "./week-strip";
 
 export default async function WeekPage() {
@@ -10,10 +11,8 @@ export default async function WeekPage() {
     redirect("/login");
   }
 
-  const now = new Date();
-  const weekStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+  const timezone = await getUserTimezone();
+  const weekStart = todayInTimezone(timezone);
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
 

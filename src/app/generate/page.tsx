@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { workoutSuggestionSchema } from "@/lib/workout-suggestion-schema";
 import { BottomNav } from "@/components/bottom-nav";
+import { getUserTimezone, todayInTimezone } from "@/lib/user-date";
 import { GenerateModeToggle } from "./generate-mode-toggle";
 
 export default async function GeneratePage({
@@ -15,10 +16,8 @@ export default async function GeneratePage({
     redirect("/login");
   }
 
-  const now = new Date();
-  const todayUtc = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+  const timezone = await getUserTimezone();
+  const todayUtc = todayInTimezone(timezone);
   const maxUtc = new Date(todayUtc);
   maxUtc.setUTCDate(maxUtc.getUTCDate() + 6);
   const todayIso = todayUtc.toISOString().slice(0, 10);

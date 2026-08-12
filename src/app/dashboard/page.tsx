@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { startAdHocWorkoutAction } from "@/app/workouts/actions";
 import { BottomNav } from "@/components/bottom-nav";
+import { getUserTimezone, todayInTimezone } from "@/lib/user-date";
 import { SkippedDayBanner } from "./skipped-day-banner";
 
 export default async function DashboardPage() {
@@ -21,10 +22,8 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
-  const now = new Date();
-  const todayStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+  const timezone = await getUserTimezone();
+  const todayStart = todayInTimezone(timezone);
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
   const todayIso = todayStart.toISOString().slice(0, 10);

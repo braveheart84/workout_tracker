@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { BottomNav } from "@/components/bottom-nav";
+import { getUserTimezone, todayInTimezone } from "@/lib/user-date";
 import { HistoryCalendar, type DaySession } from "./history-calendar";
 
 export default async function HistoryPage() {
@@ -10,20 +11,18 @@ export default async function HistoryPage() {
     redirect("/login");
   }
 
-  const now = new Date();
-  const todayUtc = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+  const timezone = await getUserTimezone();
+  const todayUtc = todayInTimezone(timezone);
   const todayIso = todayUtc.toISOString().slice(0, 10);
 
   // A bounded but generous window (a year back, a few months forward for
   // rescheduled/planned days) rather than every session ever, so month
   // navigation stays a client-side filter with no refetch per month.
   const rangeStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1),
+    Date.UTC(todayUtc.getUTCFullYear(), todayUtc.getUTCMonth() - 11, 1),
   );
   const rangeEnd = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 3, 1),
+    Date.UTC(todayUtc.getUTCFullYear(), todayUtc.getUTCMonth() + 3, 1),
   );
 
   const sessions = await prisma.workoutSession.findMany({

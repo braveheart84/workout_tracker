@@ -16,6 +16,7 @@ import {
 } from "@/lib/workout-suggestion-schema";
 import { FOCUS_AREAS } from "@/lib/focus-area";
 import { formatTarget } from "@/lib/format-set-summary";
+import { getUserTimezone, todayInTimezone } from "@/lib/user-date";
 
 const freeTextSchema = z.string().max(1000);
 const feedbackSchema = z
@@ -52,26 +53,29 @@ function generationErrorMessage(
 
 // Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
 // today through 6 days out, shared by both the single-day date field and
-// the multi-day dates array below.
-function getGenerationWindow() {
-  const now = new Date();
-  const todayUtc = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+// the multi-day dates array below. "Today" depends on the user's timezone
+// (see src/lib/user-date.ts), which is only known once read from cookies
+// inside a request, so this is async and called fresh per-action rather
+// than computed once at module scope.
+async function getGenerationWindow() {
+  const timezone = await getUserTimezone();
+  const todayUtc = todayInTimezone(timezone);
   const maxUtc = new Date(todayUtc);
   maxUtc.setUTCDate(maxUtc.getUTCDate() + 6);
   return { todayUtc, maxUtc };
 }
 
-const dateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
-  .transform((v) => new Date(`${v}T00:00:00.000Z`))
-  .refine((d) => !Number.isNaN(d.getTime()), "Pick a valid date.")
-  .refine((d) => {
-    const { todayUtc, maxUtc } = getGenerationWindow();
-    return d >= todayUtc && d <= maxUtc;
-  }, "Pick a date within the next 7 days.");
+function makeDateSchema(todayUtc: Date, maxUtc: Date) {
+  return z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
+    .transform((v) => new Date(`${v}T00:00:00.000Z`))
+    .refine((d) => !Number.isNaN(d.getTime()), "Pick a valid date.")
+    .refine(
+      (d) => d >= todayUtc && d <= maxUtc,
+      "Pick a date within the next 7 days.",
+    );
+}
 
 // PRD 7.2's "range of days" scope, refined per user feedback after PR-16's
 // first cut: rather than a single day count implying N *consecutive* days,
@@ -80,24 +84,29 @@ const dateSchema = z
 // SPACED_OFFSETS_BY_COUNT client-side) or by checking exact days on a
 // calendar. Either way, the client resolves that down to a concrete list of
 // ISO dates and this is what actually gets validated server-side.
-const datesArraySchema = z
-  .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick valid days."))
-  .min(1, "Pick at least 1 day.")
-  .max(7, "Pick at most 7 days.")
-  .refine((arr) => new Set(arr).size === arr.length, "Duplicate day selected.")
-  .transform((arr) =>
-    arr
-      .map((v) => new Date(`${v}T00:00:00.000Z`))
-      .sort((a, b) => a.getTime() - b.getTime()),
-  )
-  .refine(
-    (dates) => dates.every((d) => !Number.isNaN(d.getTime())),
-    "Pick valid days.",
-  )
-  .refine((dates) => {
-    const { todayUtc, maxUtc } = getGenerationWindow();
-    return dates.every((d) => d >= todayUtc && d <= maxUtc);
-  }, "Pick days within the next 7 days.");
+function makeDatesArraySchema(todayUtc: Date, maxUtc: Date) {
+  return z
+    .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick valid days."))
+    .min(1, "Pick at least 1 day.")
+    .max(7, "Pick at most 7 days.")
+    .refine(
+      (arr) => new Set(arr).size === arr.length,
+      "Duplicate day selected.",
+    )
+    .transform((arr) =>
+      arr
+        .map((v) => new Date(`${v}T00:00:00.000Z`))
+        .sort((a, b) => a.getTime() - b.getTime()),
+    )
+    .refine(
+      (dates) => dates.every((d) => !Number.isNaN(d.getTime())),
+      "Pick valid days.",
+    )
+    .refine(
+      (dates) => dates.every((d) => d >= todayUtc && d <= maxUtc),
+      "Pick days within the next 7 days.",
+    );
+}
 
 async function getLibraryLines(userId: string) {
   const exercises = await prisma.exercise.findMany({
@@ -775,7 +784,8 @@ export async function generateWorkoutSuggestionAction(
   const freeText = parsedFreeText.success ? parsedFreeText.data : "";
 
   const dateInput = formData.get("date");
-  const parsedDate = dateSchema.safeParse(dateInput);
+  const { todayUtc, maxUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(dateInput);
   if (!parsedDate.success) {
     return {
       error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
@@ -851,7 +861,10 @@ export async function importWorkoutTextAction(
     };
   }
 
-  const parsedDate = dateSchema.safeParse(formData.get("date"));
+  const { todayUtc, maxUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(
+    formData.get("date"),
+  );
   if (!parsedDate.success) {
     return {
       error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
@@ -925,7 +938,10 @@ export async function generateWorkoutPlanAction(
   const rawDates = formData
     .getAll("dates")
     .filter((v): v is string => typeof v === "string");
-  const parsedDates = datesArraySchema.safeParse(rawDates);
+  const { todayUtc, maxUtc } = await getGenerationWindow();
+  const parsedDates = makeDatesArraySchema(todayUtc, maxUtc).safeParse(
+    rawDates,
+  );
   if (!parsedDates.success) {
     return {
       error: parsedDates.error.issues[0]?.message ?? "Pick at least 1 day.",
@@ -1058,7 +1074,10 @@ export async function reviseWorkoutSuggestionAction(
     };
   }
 
-  const parsedDate = dateSchema.safeParse(formData.get("date"));
+  const { todayUtc, maxUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(
+    formData.get("date"),
+  );
   if (!parsedDate.success) {
     return {
       error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
@@ -1127,7 +1146,10 @@ export async function acceptWorkoutSuggestionAction(
     return { error: "Invalid suggestion data." };
   }
 
-  const parsedDate = dateSchema.safeParse(formData.get("date"));
+  const { todayUtc, maxUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(
+    formData.get("date"),
+  );
   if (!parsedDate.success) {
     return {
       error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
@@ -1178,7 +1200,10 @@ export async function acceptDayInPlanAction(
     return { error: "Invalid suggestion data." };
   }
 
-  const parsedDate = dateSchema.safeParse(formData.get("date"));
+  const { todayUtc, maxUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(
+    formData.get("date"),
+  );
   if (!parsedDate.success) {
     return {
       error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
