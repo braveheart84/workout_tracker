@@ -145,20 +145,42 @@ export async function rescheduleSkippedSessionAction(
   return undefined;
 }
 
+async function markPlannedSessionDiscarded(userId: string, id: string) {
+  await prisma.workoutSession.updateMany({
+    where: { id, userId, status: "PLANNED" },
+    data: { status: "DISCARDED" },
+  });
+  revalidatePath("/dashboard");
+  revalidatePath("/history");
+  revalidatePath("/week");
+}
+
+// Used by SkippedDayBanner on the dashboard - stays in place afterward (no
+// redirect), the discarded card just disappears once the banner's list
+// re-renders via the revalidatePath calls above.
 export async function discardSkippedSessionAction(id: string) {
   const session = await auth();
   if (!session?.user) {
     redirect("/login");
   }
 
-  await prisma.workoutSession.updateMany({
-    where: { id, userId: session.user.id, status: "PLANNED" },
-    data: { status: "DISCARDED" },
-  });
+  await markPlannedSessionDiscarded(session.user.id, id);
+}
 
-  revalidatePath("/dashboard");
-  revalidatePath("/history");
-  revalidatePath("/week");
+// Used from the workout detail page itself - any planned day, not just a
+// skipped (already-past) one, since there was previously no way to cancel
+// a future planned workout at all. Redirects to /dashboard afterward,
+// since a page for a session that's now DISCARDED has nothing useful left
+// to show (unlike the skipped-day banner, which is already on the
+// dashboard and just needs the one card to disappear).
+export async function discardPlannedWorkoutAction(id: string) {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  await markPlannedSessionDiscarded(session.user.id, id);
+  redirect("/dashboard");
 }
 
 function optionalRating(min: number, max: number, label: string) {
