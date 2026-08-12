@@ -33,10 +33,30 @@ function getClient() {
   return client;
 }
 
+// HTTP statuses the Anthropic API returns for a request that will fail the
+// same way every time until an operator fixes something server-side - a bad/
+// revoked API key (401), a key without access to the model (403), or (the
+// case that prompted this) an account out of credits (400,
+// "credit balance too low"). 429 (rate limit) and 5xx are deliberately
+// excluded - those are transient/already covered by the SDK's own retry -
+// as is a 404, which would only mean a code-level mistake (wrong model id),
+// not a per-request condition.
+const NON_TRANSIENT_STATUSES = new Set([400, 401, 403]);
+
 export class ClaudeStructuredOutputError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
+  // False for a request that will keep failing the same way until an
+  // operator intervenes (bad API key, no credits) - the caller uses this to
+  // show the user a message that doesn't imply retrying will help, and to
+  // decide whether the failure is alert-worthy.
+  readonly isTransient: boolean;
+
+  constructor(
+    message: string,
+    options?: ErrorOptions & { isTransient?: boolean },
+  ) {
     super(message, options);
     this.name = "ClaudeStructuredOutputError";
+    this.isTransient = options?.isTransient ?? true;
   }
 }
 
@@ -85,7 +105,10 @@ function stripUnsupportedStrictKeywords(node: unknown): unknown {
  * it - per TECH_STACK.md Section 5's "structured output ... validated with
  * Zod" requirement. Throws ClaudeStructuredOutputError on any failure
  * (request failure, missing tool call, or a response that doesn't validate),
- * for the caller to surface as a retryable error per PRD Section 8.
+ * for the caller to surface as a retryable error per PRD Section 8 - except
+ * a request failure classified as non-transient (see NON_TRANSIENT_STATUSES),
+ * where the thrown error's isTransient is false so the caller can tell the
+ * user retrying won't help instead of suggesting it will.
  */
 export async function requestStructuredOutput<T>({
   system,
@@ -133,8 +156,29 @@ export async function requestStructuredOutput<T>({
       tool_choice: { type: "tool", name: TOOL_NAME },
     });
   } catch (error) {
+    const isNonTransient =
+      error instanceof Anthropic.APIError &&
+      typeof error.status === "number" &&
+      NON_TRANSIENT_STATUSES.has(error.status);
+
+    if (error instanceof Anthropic.APIError && isNonTransient) {
+      // Deliberately a distinct, greppable log line rather than folding
+      // into the generic error logging each call site already does on its
+      // own catch - this is the one signal an operator needs to notice
+      // without having to read every generation failure to spot the one
+      // that's actually "the app is broken for everyone," not "the model
+      // had a bad response."
+      console.error(
+        "ALERT: Claude API request failed with a non-retryable error " +
+          `(status ${error.status}) - this needs operator attention ` +
+          "(API key / billing), not a user retry.",
+        error,
+      );
+    }
+
     throw new ClaudeStructuredOutputError("Claude API request failed.", {
       cause: error,
+      isTransient: !isNonTransient,
     });
   }
 

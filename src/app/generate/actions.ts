@@ -4,7 +4,10 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { requestStructuredOutput } from "@/lib/claude";
+import {
+  requestStructuredOutput,
+  ClaudeStructuredOutputError,
+} from "@/lib/claude";
 import { persistWorkoutStructure } from "@/lib/persist-workout-structure";
 import {
   workoutSuggestionSchema,
@@ -29,6 +32,23 @@ const sourceTextSchema = z
 // PRD 7.2's focus-area shortcut: 0 or more of the fixed set, alongside the
 // existing free text rather than instead of it.
 const focusTagsSchema = z.array(z.enum(FOCUS_AREAS)).max(FOCUS_AREAS.length);
+
+// Shared by every generation action's catch block. A non-transient failure
+// (see ClaudeStructuredOutputError.isTransient) means retrying will fail
+// the same way again - "Try again" would be actively misleading there, so
+// it gets one fixed message regardless of what the action was doing.
+// transientMessage is the action-specific message used for every other
+// failure (a Claude hiccup, a malformed response), same as before this
+// distinction existed.
+function generationErrorMessage(
+  error: unknown,
+  transientMessage: string = "Couldn't generate a workout right now. Try again, or start one manually.",
+): string {
+  if (error instanceof ClaudeStructuredOutputError && !error.isTransient) {
+    return "Workout generation is temporarily unavailable. We've been notified - please check back later, or start a workout manually.";
+  }
+  return transientMessage;
+}
 
 // Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
 // today through 6 days out, shared by both the single-day date field and
@@ -796,13 +816,11 @@ export async function generateWorkoutSuggestionAction(
   } catch (error) {
     // PRD Section 8: any generation failure - a transient Claude API issue,
     // a malformed response, or a server misconfiguration alike - degrades
-    // gracefully to a retryable error instead of crashing the page. Logged
-    // here so a real misconfiguration is still visible in server logs.
+    // gracefully instead of crashing the page. Logged here so it's still
+    // visible in server logs; requestStructuredOutput separately logs an
+    // ALERT line for the non-transient (operator-needs-to-fix-it) subset.
     console.error("Workout generation failed:", error);
-    return {
-      error:
-        "Couldn't generate a workout right now. Try again, or start one manually.",
-    };
+    return { error: generationErrorMessage(error) };
   }
 }
 
@@ -861,8 +879,10 @@ export async function importWorkoutTextAction(
   } catch (error) {
     console.error("Workout import failed:", error);
     return {
-      error:
+      error: generationErrorMessage(
+        error,
         "Couldn't convert that workout right now. Try again, or simplify the pasted text.",
+      ),
     };
   }
 }
@@ -988,8 +1008,10 @@ export async function generateWorkoutPlanAction(
   } catch (error) {
     console.error("Workout plan generation failed:", error);
     return {
-      error:
+      error: generationErrorMessage(
+        error,
         "Couldn't generate a plan right now. Try again, or generate a single day instead.",
+      ),
     };
   }
 }
@@ -1069,8 +1091,10 @@ export async function reviseWorkoutSuggestionAction(
   } catch (error) {
     console.error("Workout revision failed:", error);
     return {
-      error:
+      error: generationErrorMessage(
+        error,
         "Couldn't apply that change right now. Try again, or accept the workout as-is.",
+      ),
     };
   }
 }
