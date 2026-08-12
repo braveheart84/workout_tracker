@@ -74,6 +74,20 @@
   --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --animate-rock: rock 1s ease-in-out infinite;
+}
+
+/* Used by PageSkeleton's loading indicator - a dumbbell rocking side to
+   side reads more like something being lifted than a generic spinner,
+   which a full 360° rotation doesn't for a shape this asymmetric. */
+@keyframes rock {
+  0%,
+  100% {
+    transform: rotate(-18deg);
+  }
+  50% {
+    transform: rotate(18deg);
+  }
 }
 
 @layer base {
