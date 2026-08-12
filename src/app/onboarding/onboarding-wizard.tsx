@@ -16,7 +16,7 @@ import {
   type OnboardingState,
 } from "./actions";
 
-const DURATION_PRESETS = [20, 45, 60] as const;
+const DURATION_PRESETS = [20, 40, 60] as const;
 
 function ProgressDots({ step, total }: { step: number; total: number }) {
   return (
@@ -37,7 +37,10 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [unitSystem, setUnitSystem] = useState<"METRIC" | "IMPERIAL">("METRIC");
   const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [duration, setDuration] = useState<number | null>(null);
+  const [durationChoice, setDurationChoice] = useState<number | "other" | null>(
+    null,
+  );
+  const [customDuration, setCustomDuration] = useState("");
   const [cardioFinisher, setCardioFinisher] =
     useState<CardioFinisherPreference>("SOMETIMES");
   const [state, formAction, pending] = useActionState<
@@ -53,13 +56,16 @@ export function OnboardingWizard() {
     );
   }
 
+  const preferredDurationMinutes =
+    durationChoice === "other" ? customDuration : (durationChoice ?? "");
+
   const hiddenFields = (
     <>
       <input type="hidden" name="unitSystem" value={unitSystem} />
       <input
         type="hidden"
         name="preferredDurationMinutes"
-        value={duration ?? ""}
+        value={preferredDurationMinutes}
       />
       <input
         type="hidden"
@@ -197,9 +203,9 @@ export function OnboardingWizard() {
                 <button
                   key={minutes}
                   type="button"
-                  onClick={() => setDuration(minutes)}
+                  onClick={() => setDurationChoice(minutes)}
                   className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
-                    duration === minutes
+                    durationChoice === minutes
                       ? "bg-primary text-primary-foreground border-primary"
                       : "border-input"
                   }`}
@@ -209,16 +215,40 @@ export function OnboardingWizard() {
               ))}
               <button
                 type="button"
-                onClick={() => setDuration(null)}
+                onClick={() => setDurationChoice("other")}
                 className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
-                  duration === null
+                  durationChoice === "other"
                     ? "bg-primary text-primary-foreground border-primary"
                     : "border-input"
                 }`}
               >
-                No preference
+                Other
               </button>
             </div>
+            {durationChoice === "other" && (
+              <input
+                type="number"
+                inputMode="numeric"
+                min={10}
+                max={180}
+                autoFocus
+                placeholder="Minutes"
+                value={customDuration}
+                onChange={(e) => setCustomDuration(e.target.value)}
+                className="border-input w-full rounded-md border px-3 py-2 text-sm"
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setDurationChoice(null)}
+              className={`w-full rounded-md border px-3 py-2 text-sm font-medium ${
+                durationChoice === null
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-input"
+              }`}
+            >
+              No preference
+            </button>
           </fieldset>
 
           <fieldset className="space-y-2">
