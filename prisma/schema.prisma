@@ -52,14 +52,50 @@ enum FocusArea {
   MOBILITY
 }
 
-// PRD Section 9 (User)
+// A standing preference on whether generation should include a cardio
+// finisher block. SOMETIMES is the default and means "no fixed
+// preference" - the model decides per-session same as it already does
+// today, rather than forcing a choice on a user who hasn't set one.
+enum CardioFinisherPreference {
+  ALWAYS
+  NEVER
+  SOMETIMES
+}
+
+// A user's available equipment, used to keep generation from suggesting
+// exercises they can't actually do. An empty availableEquipment array
+// means "no preference given" (assume typical gym access, today's
+// behavior), not "bodyweight only" - there's no explicit bodyweight-only
+// value since that's just the natural reading of nothing being selected.
+enum Equipment {
+  BARBELL
+  DUMBBELLS
+  KETTLEBELLS
+  MACHINES
+  CABLES
+  RESISTANCE_BANDS
+  PULL_UP_BAR
+  CARDIO_MACHINES
+  BATTLE_ROPES
+  SLED
+}
+
+// PRD Section 9 (User). preferredDurationMinutes/cardioFinisherPreference/
+// availableEquipment/avoidedExercisesNote are standing generation
+// preferences - captured once here instead of the user having to restate
+// them (session length, cardio finisher, equipment, injuries/dislikes) in
+// free text on every single generation request.
 model User {
-  id               String     @id @default(uuid())
-  email            String     @unique
-  passwordHash     String     @map("password_hash")
-  unitSystem       UnitSystem @default(METRIC) @map("unit_system")
-  remindersEnabled Boolean    @default(true) @map("reminders_enabled")
-  createdAt        DateTime   @default(now()) @map("created_at")
+  id                       String                   @id @default(uuid())
+  email                    String                   @unique
+  passwordHash             String                   @map("password_hash")
+  unitSystem               UnitSystem               @default(METRIC) @map("unit_system")
+  remindersEnabled         Boolean                  @default(true) @map("reminders_enabled")
+  preferredDurationMinutes Int?                     @map("preferred_duration_minutes")
+  cardioFinisherPreference CardioFinisherPreference @default(SOMETIMES) @map("cardio_finisher_preference")
+  availableEquipment       Equipment[]              @map("available_equipment")
+  avoidedExercisesNote     String?                  @map("avoided_exercises_note")
+  createdAt                DateTime                 @default(now()) @map("created_at")
 
   exercises        Exercise[]
   workoutSessions  WorkoutSession[]
