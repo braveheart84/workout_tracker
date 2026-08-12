@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { DIFFICULTY_LABELS } from "@/lib/difficulty";
 import { BottomNav } from "@/components/bottom-nav";
+import { HistoryCalendar, type DaySession } from "./history-calendar";
 
 export default async function HistoryPage() {
   const session = await auth();
@@ -15,135 +14,73 @@ export default async function HistoryPage() {
   const todayUtc = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
+  const todayIso = todayUtc.toISOString().slice(0, 10);
 
-  const [upcoming, sessions] = await Promise.all([
-    prisma.workoutSession.findMany({
-      where: {
-        userId: session.user.id,
-        status: "PLANNED",
-        date: { gte: todayUtc },
-      },
-      orderBy: { date: "asc" },
-      include: {
-        blocks: { include: { workoutExercises: { select: { id: true } } } },
-      },
-    }),
-    prisma.workoutSession.findMany({
-      where: { userId: session.user.id, status: "COMPLETED" },
-      orderBy: { completedAt: "desc" },
-      take: 50,
-      include: {
-        blocks: {
-          include: {
-            workoutExercises: { include: { sets: { select: { id: true } } } },
-          },
+  // A bounded but generous window (a year back, a few months forward for
+  // rescheduled/planned days) rather than every session ever, so month
+  // navigation stays a client-side filter with no refetch per month.
+  const rangeStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1),
+  );
+  const rangeEnd = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 3, 1),
+  );
+
+  const sessions = await prisma.workoutSession.findMany({
+    where: {
+      userId: session.user.id,
+      date: { gte: rangeStart, lt: rangeEnd },
+    },
+    orderBy: { date: "asc" },
+    include: {
+      blocks: {
+        include: {
+          workoutExercises: { include: { sets: { select: { id: true } } } },
         },
       },
-    }),
-  ]);
+    },
+  });
+
+  const sessionsByDate: Record<string, DaySession[]> = {};
+  for (const workoutSession of sessions) {
+    const dateIso = workoutSession.date.toISOString().slice(0, 10);
+    const exerciseCount = workoutSession.blocks.reduce(
+      (sum, block) => sum + block.workoutExercises.length,
+      0,
+    );
+    const setCount = workoutSession.blocks.reduce(
+      (sum, block) =>
+        sum +
+        block.workoutExercises.reduce(
+          (blockSum, we) => blockSum + we.sets.length,
+          0,
+        ),
+      0,
+    );
+    (sessionsByDate[dateIso] ??= []).push({
+      id: workoutSession.id,
+      status: workoutSession.status,
+      label: workoutSession.label,
+      type: workoutSession.type,
+      exerciseCount,
+      setCount,
+      difficultyRating: workoutSession.difficultyRating,
+    });
+  }
+
+  const minMonthKey = `${rangeStart.getUTCFullYear()}-${String(rangeStart.getUTCMonth() + 1).padStart(2, "0")}`;
+  const maxMonthKey = `${new Date(rangeEnd.getTime() - 1).getUTCFullYear()}-${String(new Date(rangeEnd.getTime() - 1).getUTCMonth() + 1).padStart(2, "0")}`;
 
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
       <div className="w-full max-w-lg space-y-6">
         <h1 className="text-2xl font-semibold tracking-tight">History</h1>
-
-        {upcoming.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium">Upcoming</h2>
-            <ul className="space-y-3">
-              {upcoming.map((workoutSession) => {
-                const exerciseCount = workoutSession.blocks.reduce(
-                  (sum, block) => sum + block.workoutExercises.length,
-                  0,
-                );
-
-                return (
-                  <li key={workoutSession.id}>
-                    <Link
-                      href={`/workouts/${workoutSession.id}`}
-                      className="hover:bg-muted/30 block space-y-1 rounded-md border p-4 text-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">
-                          {workoutSession.label || "Workout"}
-                        </span>
-                        <span className="text-muted-foreground text-xs">
-                          {workoutSession.date.toLocaleDateString(undefined, {
-                            timeZone: "UTC",
-                          })}
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground text-xs">
-                        Planned · {exerciseCount} exercise
-                        {exerciseCount === 1 ? "" : "s"}
-                      </p>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-
-        {sessions.length === 0 ? (
-          upcoming.length === 0 && (
-            <p className="text-muted-foreground text-sm">
-              No completed workouts yet.
-            </p>
-          )
-        ) : (
-          <div className="space-y-3">
-            {upcoming.length > 0 && (
-              <h2 className="text-sm font-medium">Completed</h2>
-            )}
-            <ul className="space-y-3">
-              {sessions.map((workoutSession) => {
-                const exerciseCount = workoutSession.blocks.reduce(
-                  (sum, block) => sum + block.workoutExercises.length,
-                  0,
-                );
-                const setCount = workoutSession.blocks.reduce(
-                  (sum, block) =>
-                    sum +
-                    block.workoutExercises.reduce(
-                      (blockSum, we) => blockSum + we.sets.length,
-                      0,
-                    ),
-                  0,
-                );
-
-                return (
-                  <li key={workoutSession.id}>
-                    <Link
-                      href={`/workouts/${workoutSession.id}`}
-                      className="hover:bg-muted/30 block space-y-1 rounded-md border p-4 text-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">
-                          {workoutSession.label || "Workout"}
-                        </span>
-                        <span className="text-muted-foreground text-xs">
-                          {workoutSession.date.toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground text-xs">
-                        {workoutSession.type === "STRENGTH"
-                          ? "Strength"
-                          : "Run"}
-                        {" · "}
-                        {exerciseCount} exercise{exerciseCount === 1 ? "" : "s"}
-                        {" · "}
-                        {setCount} set{setCount === 1 ? "" : "s"}
-                        {workoutSession.difficultyRating != null &&
-                          ` · Difficulty: ${workoutSession.difficultyRating}/5 (${DIFFICULTY_LABELS[workoutSession.difficultyRating - 1]})`}
-                      </p>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
+        <HistoryCalendar
+          sessionsByDate={sessionsByDate}
+          todayIso={todayIso}
+          minMonthKey={minMonthKey}
+          maxMonthKey={maxMonthKey}
+        />
         <div className="h-20" aria-hidden="true" />
       </div>
       <BottomNav />
