@@ -16,14 +16,16 @@ export function GenerateModeToggle({
   defaultDateIso,
   templates,
   baselineSessions,
+  initialMode = "single",
 }: {
   todayIso: string;
   maxIso: string;
   defaultDateIso: string;
   templates: { id: string; name: string; structure: WorkoutSuggestion }[];
   baselineSessions: { id: string; dateIso: string; label: string | null }[];
+  initialMode?: "single" | "multi" | "import";
 }) {
-  const [mode, setMode] = useState<"single" | "multi" | "import">("single");
+  const [mode, setMode] = useState<"single" | "multi" | "import">(initialMode);
 
   return (
     <div className="space-y-4">

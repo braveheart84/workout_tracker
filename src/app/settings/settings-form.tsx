@@ -12,6 +12,7 @@ import {
 import { updateSettingsAction, type SettingsState } from "./actions";
 
 export function SettingsForm({
+  currentName,
   currentUnitSystem,
   currentRemindersEnabled,
   currentPreferredDurationMinutes,
@@ -19,6 +20,7 @@ export function SettingsForm({
   currentAvailableEquipment,
   currentAvoidedExercisesNote,
 }: {
+  currentName: string | null;
   currentUnitSystem: "METRIC" | "IMPERIAL";
   currentRemindersEnabled: boolean;
   currentPreferredDurationMinutes: number | null;
@@ -33,6 +35,21 @@ export function SettingsForm({
 
   return (
     <form action={formAction} className="space-y-6">
+      <div className="space-y-1">
+        <label htmlFor="name" className="text-sm font-medium">
+          Name
+        </label>
+        <input
+          id="name"
+          type="text"
+          name="name"
+          maxLength={100}
+          defaultValue={currentName ?? ""}
+          placeholder="e.g. Alex"
+          className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+        />
+      </div>
+
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Units</legend>
         <label className="flex items-center gap-2 text-sm">

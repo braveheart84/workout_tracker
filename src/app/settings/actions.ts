@@ -7,6 +7,10 @@ import { preferencesSchema } from "@/lib/preferences";
 import { z } from "zod";
 
 const settingsSchema = preferencesSchema.extend({
+  name: z
+    .string()
+    .max(100, "Keep it under 100 characters.")
+    .transform((v) => (v.trim() === "" ? null : v.trim())),
   avoidedExercisesNote: z
     .string()
     .max(500, "Keep it under 500 characters.")
@@ -25,6 +29,7 @@ export async function updateSettingsAction(
   }
 
   const parsed = settingsSchema.safeParse({
+    name: formData.get("name") ?? "",
     unitSystem: formData.get("unitSystem"),
     preferredDurationMinutes: formData.get("preferredDurationMinutes"),
     cardioFinisherPreference: formData.get("cardioFinisherPreference"),
@@ -43,6 +48,7 @@ export async function updateSettingsAction(
   await prisma.user.update({
     where: { id: session.user.id },
     data: {
+      name: parsed.data.name,
       unitSystem: parsed.data.unitSystem,
       remindersEnabled,
       preferredDurationMinutes: parsed.data.preferredDurationMinutes,
