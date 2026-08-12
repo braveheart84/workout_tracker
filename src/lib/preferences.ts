@@ -25,6 +25,9 @@ export const EQUIPMENT_OPTIONS = [
   "CABLES",
   "RESISTANCE_BANDS",
   "PULL_UP_BAR",
+  "CARDIO_MACHINES",
+  "BATTLE_ROPES",
+  "SLED",
 ] as const;
 export type Equipment = (typeof EQUIPMENT_OPTIONS)[number];
 
@@ -32,8 +35,11 @@ export const EQUIPMENT_LABELS: Record<Equipment, string> = {
   BARBELL: "Barbell",
   DUMBBELLS: "Dumbbells",
   KETTLEBELLS: "Kettlebells",
-  MACHINES: "Machines",
+  MACHINES: "Strength/weight machines",
   CABLES: "Cables",
   RESISTANCE_BANDS: "Resistance bands",
   PULL_UP_BAR: "Pull-up bar",
+  CARDIO_MACHINES: "Cardio machines (treadmill, rower, skierg, bike, etc.)",
+  BATTLE_ROPES: "Battle ropes",
+  SLED: "Sled",
 };

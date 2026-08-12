@@ -75,6 +75,9 @@ enum Equipment {
   CABLES
   RESISTANCE_BANDS
   PULL_UP_BAR
+  CARDIO_MACHINES
+  BATTLE_ROPES
+  SLED
 }
 
 // PRD Section 9 (User). preferredDurationMinutes/cardioFinisherPreference/
