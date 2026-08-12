@@ -13,6 +13,20 @@ export default function SignupPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Sign up</h1>
         <form action={formAction} className="space-y-4">
           <div className="space-y-1">
+            <label htmlFor="name" className="text-sm font-medium">
+              Name
+            </label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              required
+              maxLength={100}
+              autoComplete="name"
+              className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
             <label htmlFor="email" className="text-sm font-medium">
               Email
             </label>

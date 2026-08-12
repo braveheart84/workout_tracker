@@ -13,6 +13,7 @@ export default async function SettingsPage() {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
     select: {
+      name: true,
       unitSystem: true,
       remindersEnabled: true,
       preferredDurationMinutes: true,
@@ -29,6 +30,7 @@ export default async function SettingsPage() {
           Account settings
         </h1>
         <SettingsForm
+          currentName={user.name}
           currentUnitSystem={user.unitSystem}
           currentRemindersEnabled={user.remindersEnabled}
           currentPreferredDurationMinutes={user.preferredDurationMinutes}

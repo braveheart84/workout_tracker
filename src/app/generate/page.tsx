@@ -8,7 +8,7 @@ import { GenerateModeToggle } from "./generate-mode-toggle";
 export default async function GeneratePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; tab?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) {
@@ -28,7 +28,7 @@ export default async function GeneratePage({
   // clicked "Generate" for. Only trust it as a default if it's actually
   // within the generation window - otherwise fall back to today, same as
   // if no date were given at all.
-  const { date: requestedDate } = await searchParams;
+  const { date: requestedDate, tab } = await searchParams;
   const defaultDateIso =
     requestedDate &&
     /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
@@ -87,6 +87,7 @@ export default async function GeneratePage({
           defaultDateIso={defaultDateIso}
           templates={templates}
           baselineSessions={baselineSessions}
+          initialMode={tab === "multi" ? "multi" : "single"}
         />
         <div className="h-20" aria-hidden="true" />
       </div>

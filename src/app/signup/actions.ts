@@ -7,6 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { signIn } from "@/auth";
 
 const signupSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Enter your name.")
+    .max(100, "Keep it under 100 characters."),
   email: z.email("Enter a valid email address."),
   password: z.string().min(8, "Password must be at least 8 characters."),
 });
@@ -18,6 +23,7 @@ export async function signupAction(
   formData: FormData,
 ): Promise<SignupState> {
   const parsed = signupSchema.safeParse({
+    name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
   });
@@ -26,7 +32,7 @@ export async function signupAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
-  const { email, password } = parsed.data;
+  const { name, email, password } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -34,7 +40,7 @@ export async function signupAction(
   }
 
   const passwordHash = await hash(password, 12);
-  await prisma.user.create({ data: { email, passwordHash } });
+  await prisma.user.create({ data: { name, email, passwordHash } });
 
   try {
     await signIn("credentials", { email, password, redirectTo: "/onboarding" });
