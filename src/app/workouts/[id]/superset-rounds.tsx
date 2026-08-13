@@ -38,11 +38,11 @@ export function SupersetRounds({
   const rounds = Array.from({ length: roundCount }, (_, i) => i + 1);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3 text-xs">
       {rounds.map((round) => (
         <div
           key={round}
-          className="bg-muted/30 space-y-2 rounded-md p-2 text-xs"
+          className="space-y-2 border-t pt-3 first:border-t-0 first:pt-0"
         >
           <p className="text-muted-foreground font-medium">Round {round}</p>
           <div className="divide-border space-y-2 divide-y">
@@ -65,11 +65,11 @@ export function SupersetRounds({
                   key={we.id}
                   className={
                     isCurrent
-                      ? "ring-primary/50 space-y-1 rounded-md p-1 pt-2 ring-2 first:pt-2"
+                      ? "ring-primary/50 space-y-1 rounded-md p-2 ring-2"
                       : "space-y-1 pt-2 first:pt-0"
                   }
                 >
-                  <p className="font-medium">
+                  <p className="text-lg font-semibold">
                     {we.exercise.name}
                     {isCurrent && (
                       <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold">

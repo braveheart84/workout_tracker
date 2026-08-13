@@ -37,7 +37,7 @@ export function SessionForm({
         />
       </div>
       <div className="space-y-1">
-        <label htmlFor="warmupNotes" className="text-sm font-medium">
+        <label htmlFor="warmupNotes" className="text-lg font-medium">
           Warm-up notes
         </label>
         <textarea
@@ -46,11 +46,12 @@ export function SessionForm({
           defaultValue={workoutSession.warmupNotes ?? ""}
           disabled={disabled}
           rows={2}
-          className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+          style={{ fontSize: "22px" }}
+          className="border-input bg-background w-full rounded-md border px-3 py-2 disabled:opacity-50"
         />
       </div>
       <div className="space-y-1">
-        <label htmlFor="finisherNotes" className="text-sm font-medium">
+        <label htmlFor="finisherNotes" className="text-lg font-medium">
           Finisher notes
         </label>
         <textarea
@@ -59,11 +60,12 @@ export function SessionForm({
           defaultValue={workoutSession.finisherNotes ?? ""}
           disabled={disabled}
           rows={2}
-          className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+          style={{ fontSize: "22px" }}
+          className="border-input bg-background w-full rounded-md border px-3 py-2 disabled:opacity-50"
         />
       </div>
       <div className="space-y-1">
-        <label htmlFor="cooldownNotes" className="text-sm font-medium">
+        <label htmlFor="cooldownNotes" className="text-lg font-medium">
           Cool-down notes
         </label>
         <textarea
@@ -72,7 +74,8 @@ export function SessionForm({
           defaultValue={workoutSession.cooldownNotes ?? ""}
           disabled={disabled}
           rows={2}
-          className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+          style={{ fontSize: "22px" }}
+          className="border-input bg-background w-full rounded-md border px-3 py-2 disabled:opacity-50"
         />
       </div>
       {state?.error && (

@@ -25,7 +25,7 @@ export function SetFields({
       {setType === "REPS" && (
         <div className="space-y-1">
           <label className="text-xs font-medium">Reps</label>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <input
               type="number"
               name="reps"
@@ -33,10 +33,12 @@ export function SetFields({
               max={1000}
               required
               defaultValue={defaults?.reps ?? undefined}
-              className="border-input bg-background w-16 rounded-md border px-2 py-1 text-sm"
+              className="border-input bg-background w-24 rounded-md border px-3 py-2 text-2xl font-semibold"
             />
             {target != null && (
-              <span className="text-muted-foreground text-xs">/ {target}</span>
+              <span className="text-muted-foreground text-2xl font-semibold">
+                / {target}
+              </span>
             )}
           </div>
         </div>
@@ -44,7 +46,7 @@ export function SetFields({
       {setType === "DURATION" && (
         <div className="space-y-1">
           <label className="text-xs font-medium">Seconds</label>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <input
               type="number"
               name="durationSeconds"
@@ -52,10 +54,12 @@ export function SetFields({
               max={36000}
               required
               defaultValue={defaults?.durationSeconds ?? undefined}
-              className="border-input bg-background w-20 rounded-md border px-2 py-1 text-sm"
+              className="border-input bg-background w-24 rounded-md border px-3 py-2 text-2xl font-semibold"
             />
             {target != null && (
-              <span className="text-muted-foreground text-xs">/ {target}</span>
+              <span className="text-muted-foreground text-2xl font-semibold">
+                / {target}
+              </span>
             )}
           </div>
         </div>
@@ -63,7 +67,7 @@ export function SetFields({
       {setType === "DISTANCE" && (
         <div className="space-y-1">
           <label className="text-xs font-medium">Meters</label>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <input
               type="number"
               name="distanceMeters"
@@ -71,10 +75,12 @@ export function SetFields({
               step={0.1}
               required
               defaultValue={defaults?.distanceMeters ?? undefined}
-              className="border-input bg-background w-20 rounded-md border px-2 py-1 text-sm"
+              className="border-input bg-background w-24 rounded-md border px-3 py-2 text-2xl font-semibold"
             />
             {target != null && (
-              <span className="text-muted-foreground text-xs">/ {target}</span>
+              <span className="text-muted-foreground text-2xl font-semibold">
+                / {target}
+              </span>
             )}
           </div>
         </div>

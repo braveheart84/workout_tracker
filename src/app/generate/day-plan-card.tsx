@@ -74,7 +74,7 @@ export function DayPlanCard({
           </h3>
           <p className="text-muted-foreground text-xs">{dateLabel}</p>
           {current.rationale && (
-            <p className="text-muted-foreground text-xs">{current.rationale}</p>
+            <p className="text-muted-foreground text-lg">{current.rationale}</p>
           )}
         </div>
         {accepted && acceptState?.sessionId && (

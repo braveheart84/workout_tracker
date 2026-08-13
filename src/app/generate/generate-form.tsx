@@ -176,7 +176,7 @@ export function GenerateForm({
               )}
             </p>
             {suggestion.rationale && (
-              <p className="text-muted-foreground text-xs">
+              <p className="text-muted-foreground text-lg">
                 {suggestion.rationale}
               </p>
             )}

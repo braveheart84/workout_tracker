@@ -32,7 +32,7 @@ export function RoundSets({
   const rounds = Array.from({ length: roundCount }, (_, i) => i + 1);
 
   return (
-    <div className="bg-muted/30 space-y-2 rounded-md p-2 text-xs">
+    <div className="space-y-3 text-xs">
       {rounds.map((round) => {
         const roundSets = sets
           .filter((s) => s.roundNumber === round)
@@ -44,8 +44,8 @@ export function RoundSets({
             key={round}
             className={
               isCurrent
-                ? "ring-primary/50 space-y-1 rounded-md p-1 ring-2"
-                : "space-y-1"
+                ? "ring-primary/50 space-y-1 rounded-md p-2 ring-2"
+                : "space-y-1 border-t pt-3 first:border-t-0 first:pt-0"
             }
           >
             <p className="text-muted-foreground font-medium">
