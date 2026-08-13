@@ -29,6 +29,9 @@ export default async function HistoryPage() {
     where: {
       userId: session.user.id,
       date: { gte: rangeStart, lt: rangeEnd },
+      // Discarded sessions were cancelled and never happened - nothing
+      // for the calendar to show for that day once they're gone.
+      status: { not: "DISCARDED" },
     },
     orderBy: { date: "asc" },
     include: {
@@ -58,7 +61,9 @@ export default async function HistoryPage() {
     );
     (sessionsByDate[dateIso] ??= []).push({
       id: workoutSession.id,
-      status: workoutSession.status,
+      // The query already excludes DISCARDED, so this is always one of
+      // the three statuses DaySession's status type allows.
+      status: workoutSession.status as DaySession["status"],
       label: workoutSession.label,
       type: workoutSession.type,
       exerciseCount,
