@@ -41,7 +41,7 @@ export function SetRow({
   if (editing) {
     return (
       <li className="space-y-1">
-        <form action={formAction} className="flex flex-wrap gap-2">
+        <form action={formAction} className="overflow-x-auto">
           <SetFields
             setType={setType}
             defaults={set}
@@ -51,14 +51,14 @@ export function SetRow({
                 <button
                   type="submit"
                   disabled={pending}
-                  className="bg-primary text-primary-foreground rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50"
+                  className="bg-primary text-primary-foreground shrink-0 rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50"
                 >
                   {pending ? "Saving…" : "Save"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditing(false)}
-                  className="text-xs underline"
+                  className="shrink-0 text-xs underline"
                 >
                   Cancel
                 </button>

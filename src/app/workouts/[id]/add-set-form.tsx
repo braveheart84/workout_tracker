@@ -63,7 +63,7 @@ export function AddSetForm({
 
   return (
     <div className="space-y-1">
-      <form key={formKey} action={formAction} className="flex flex-wrap gap-2">
+      <form key={formKey} action={formAction} className="overflow-x-auto">
         <SetFields
           setType={setType}
           target={target}
@@ -73,7 +73,7 @@ export function AddSetForm({
               <button
                 type="submit"
                 disabled={pending}
-                className="bg-primary text-primary-foreground rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50"
+                className="bg-primary text-primary-foreground shrink-0 rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50"
               >
                 {pending ? "Logging…" : "Log set"}
               </button>
@@ -81,7 +81,7 @@ export function AddSetForm({
                 <button
                   type="button"
                   onClick={() => setExpanded(false)}
-                  className="text-xs underline"
+                  className="shrink-0 text-xs underline"
                 >
                   Cancel
                 </button>
