@@ -13,6 +13,7 @@ export default async function WeekPage() {
 
   const timezone = await getUserTimezone();
   const weekStart = todayInTimezone(timezone);
+  const todayIso = weekStart.toISOString().slice(0, 10);
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
 
@@ -50,7 +51,7 @@ export default async function WeekPage() {
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
       <div className="w-full max-w-lg space-y-6">
         <h1 className="text-2xl font-semibold tracking-tight">This Week</h1>
-        <WeekStrip days={days} />
+        <WeekStrip days={days} todayIso={todayIso} />
         <div className="h-20" aria-hidden="true" />
       </div>
       <BottomNav />
