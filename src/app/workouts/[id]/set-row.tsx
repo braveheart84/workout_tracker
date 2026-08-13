@@ -41,22 +41,30 @@ export function SetRow({
   if (editing) {
     return (
       <li className="space-y-1">
-        <form action={formAction} className="flex flex-wrap items-end gap-2">
-          <SetFields setType={setType} defaults={set} target={target} />
-          <button
-            type="submit"
-            disabled={pending}
-            className="bg-primary text-primary-foreground rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50"
-          >
-            {pending ? "Saving…" : "Save"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="text-xs underline"
-          >
-            Cancel
-          </button>
+        <form action={formAction} className="flex flex-wrap gap-2">
+          <SetFields
+            setType={setType}
+            defaults={set}
+            target={target}
+            actions={
+              <>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="bg-primary text-primary-foreground rounded-md px-2 py-1 text-xs font-medium disabled:opacity-50"
+                >
+                  {pending ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  className="text-xs underline"
+                >
+                  Cancel
+                </button>
+              </>
+            }
+          />
         </form>
         {state?.error && (
           <p className="text-destructive text-xs">{state.error}</p>

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { SetType, WeightUnit } from "@/generated/prisma/client";
 
 export function SetFields({
@@ -5,6 +6,7 @@ export function SetFields({
   defaults,
   target,
   defaultWeightUnit,
+  actions,
 }: {
   setType: SetType;
   defaults?: {
@@ -19,6 +21,12 @@ export function SetFields({
   // alongside the input as a "/ N" hint so the user knows what to aim for.
   target?: number | null;
   defaultWeightUnit?: WeightUnit;
+  // The form's submit/cancel button(s), rendered inline with the weight
+  // row rather than as separate siblings after this component - keeps
+  // them from wrapping onto their own row away from the weight input
+  // when the reps/duration/distance field above (much bigger since it's
+  // the main thing being logged) pushes weight onto its own line.
+  actions?: ReactNode;
 }) {
   return (
     <>
@@ -87,23 +95,26 @@ export function SetFields({
       )}
       <div className="space-y-1">
         <label className="text-xs font-medium">Weight (optional)</label>
-        <div className="flex gap-1">
-          <input
-            type="number"
-            name="weight"
-            min={0}
-            step={0.5}
-            defaultValue={defaults?.weight ?? undefined}
-            className="border-input bg-background w-16 rounded-md border px-2 py-1 text-sm"
-          />
-          <select
-            name="weightUnit"
-            defaultValue={defaults?.weightUnit ?? defaultWeightUnit ?? "KG"}
-            className="border-input bg-background rounded-md border px-1 py-1 text-sm"
-          >
-            <option value="KG">kg</option>
-            <option value="LB">lb</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1">
+            <input
+              type="number"
+              name="weight"
+              min={0}
+              step={0.5}
+              defaultValue={defaults?.weight ?? undefined}
+              className="border-input bg-background w-16 rounded-md border px-2 py-1 text-sm"
+            />
+            <select
+              name="weightUnit"
+              defaultValue={defaults?.weightUnit ?? defaultWeightUnit ?? "KG"}
+              className="border-input bg-background rounded-md border px-1 py-1 text-sm"
+            >
+              <option value="KG">kg</option>
+              <option value="LB">lb</option>
+            </select>
+          </div>
+          {actions}
         </div>
       </div>
     </>
