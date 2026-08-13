@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import {
-  rescheduleSkippedSessionAction,
+  reschedulePlannedSessionAction,
   discardSkippedSessionAction,
   type RescheduleFormState,
 } from "@/app/workouts/actions";
@@ -50,7 +50,7 @@ function SkippedDayCard({
   session: SkippedSession;
   todayIso: string;
 }) {
-  const boundReschedule = rescheduleSkippedSessionAction.bind(null, session.id);
+  const boundReschedule = reschedulePlannedSessionAction.bind(null, session.id);
   const [state, formAction, pending] = useActionState<
     RescheduleFormState,
     FormData

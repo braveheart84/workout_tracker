@@ -95,12 +95,14 @@ export async function updateWorkoutSessionAction(
   return { success: true };
 }
 
-// PRD 7.3 "skipped days": a planned session whose date has passed without
-// ever being started. Reschedule just moves its date; no upper bound like
-// generation's 7-day window, since this is repositioning an already-planned
-// session rather than asking the LLM to generate one. A factory (rather
-// than a static schema) since "today" depends on the user's timezone,
-// which is only known once the action reads it.
+// Reschedule just moves a planned session's date - used both for PRD 7.3
+// "skipped days" (a planned session whose date has passed without ever
+// being started) and for moving a not-yet-due future plan to a different
+// day. No upper bound like generation's 7-day window, since this is
+// repositioning an already-planned session rather than asking the LLM to
+// generate one. A factory (rather than a static schema) since "today"
+// depends on the user's timezone, which is only known once the action
+// reads it.
 function makeRescheduleDateSchema(todayUtc: Date) {
   return z
     .string()
@@ -112,7 +114,7 @@ function makeRescheduleDateSchema(todayUtc: Date) {
 
 export type RescheduleFormState = { error?: string } | undefined;
 
-export async function rescheduleSkippedSessionAction(
+export async function reschedulePlannedSessionAction(
   id: string,
   _prevState: RescheduleFormState,
   formData: FormData,
@@ -142,6 +144,7 @@ export async function rescheduleSkippedSessionAction(
   revalidatePath("/dashboard");
   revalidatePath("/history");
   revalidatePath("/week");
+  revalidatePath(`/workouts/${id}`);
   return undefined;
 }
 

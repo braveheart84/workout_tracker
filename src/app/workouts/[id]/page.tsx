@@ -3,12 +3,14 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import type { WorkoutSession } from "@/generated/prisma/client";
+import { getUserTimezone, todayInTimezone } from "@/lib/user-date";
 import { SessionForm } from "./session-form";
 import { BlocksManager } from "./blocks-manager";
 import { FinishWorkoutForm } from "./finish-workout-form";
 import { FeedbackSummary } from "./feedback-summary";
 import { StartWorkoutButton } from "./start-workout-button";
 import { DiscardPlannedWorkoutButton } from "./discard-planned-workout-button";
+import { RescheduleWorkoutForm } from "./reschedule-workout-form";
 import { SaveAsTemplateForm } from "./save-as-template-form";
 
 const STATUS_LABELS: Record<WorkoutSession["status"], string> = {
@@ -61,6 +63,8 @@ export default async function WorkoutSessionPage({
   const defaultWeightUnit = user.unitSystem === "IMPERIAL" ? "LB" : "KG";
   const isInProgress = workoutSession.status === "IN_PROGRESS";
   const isPlanned = workoutSession.status === "PLANNED";
+  const timezone = await getUserTimezone();
+  const todayIso = todayInTimezone(timezone).toISOString().slice(0, 10);
 
   return (
     <main className="flex flex-1 flex-col items-center gap-6 p-8">
@@ -94,6 +98,11 @@ export default async function WorkoutSessionPage({
         ) : isPlanned ? (
           <div className="space-y-2">
             <StartWorkoutButton sessionId={workoutSession.id} />
+            <RescheduleWorkoutForm
+              sessionId={workoutSession.id}
+              currentDateIso={workoutSession.date.toISOString().slice(0, 10)}
+              todayIso={todayIso}
+            />
             <DiscardPlannedWorkoutButton sessionId={workoutSession.id} />
           </div>
         ) : (
