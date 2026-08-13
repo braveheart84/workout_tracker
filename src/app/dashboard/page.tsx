@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Dumbbell, CheckCircle2, Sparkles, Play, Plus } from "lucide-react";
+import {
+  Dumbbell,
+  CheckCircle2,
+  Sparkles,
+  Play,
+  Plus,
+  ChevronRight,
+} from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { startAdHocWorkoutAction } from "@/app/workouts/actions";
@@ -134,8 +141,11 @@ export default async function DashboardPage() {
 
       <SkippedDayBanner sessions={skippedSessions} todayIso={todayIso} />
 
-      <div className="space-y-3 rounded-md border p-4">
-        <p className="text-sm font-medium">This week</p>
+      <Link href="/week" className="block space-y-3 rounded-md border p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">This week</p>
+          <ChevronRight className="text-muted-foreground h-4 w-4" />
+        </div>
         <div className="flex justify-between">
           {weekChips.map((day) => (
             <div
@@ -163,7 +173,7 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
-      </div>
+      </Link>
 
       {inProgress ? (
         <div className="border-primary flex items-start gap-3 rounded-md border-l-4 p-4 shadow-sm">
