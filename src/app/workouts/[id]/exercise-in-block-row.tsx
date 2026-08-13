@@ -55,10 +55,10 @@ export function ExerciseInBlockRow({
   return (
     <li className="flex flex-col gap-2 p-2 text-sm">
       <div className="flex items-center justify-between gap-4">
-        <span>
+        <span className="text-lg font-semibold">
           {exercise.name}
           {exercise.muscleGroup ? (
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground text-sm font-normal">
               {" "}
               · {exercise.muscleGroup}
             </span>

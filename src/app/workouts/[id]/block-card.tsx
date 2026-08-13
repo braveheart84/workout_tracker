@@ -207,7 +207,7 @@ export function BlockCard({
 
       {sortedExercises.length > 0 && (
         <>
-          <ul className="divide-border divide-y rounded-md border">
+          <ul className="divide-border divide-y">
             {sortedExercises.map((we, index) => (
               <ExerciseInBlockRow
                 key={we.id}
