@@ -7,7 +7,7 @@ import { DIFFICULTY_LABELS } from "@/lib/difficulty";
 
 export type DaySession = {
   id: string;
-  status: "IN_PROGRESS" | "PLANNED" | "COMPLETED" | "DISCARDED";
+  status: "IN_PROGRESS" | "PLANNED" | "COMPLETED";
   label: string | null;
   type: "STRENGTH" | "RUN";
   exerciseCount: number;
@@ -19,18 +19,15 @@ const STATUS_DOT: Record<DaySession["status"], string> = {
   IN_PROGRESS: "bg-primary",
   PLANNED: "bg-primary",
   COMPLETED: "bg-emerald-500",
-  DISCARDED: "bg-muted-foreground/40",
 };
 
 // Priority for which session's status "wins" the day's dot when a date has
-// more than one row (e.g. a discarded plan plus the ad-hoc workout that
-// replaced it) - same ordering already used for the week view's per-day
-// summary.
+// more than one row - same ordering already used for the week view's
+// per-day summary.
 const STATUS_PRIORITY: DaySession["status"][] = [
   "IN_PROGRESS",
   "PLANNED",
   "COMPLETED",
-  "DISCARDED",
 ];
 
 function dominantStatus(
@@ -188,10 +185,6 @@ export function HistoryCalendar({
             <span className="bg-primary h-1.5 w-1.5 rounded-full" />
             Planned
           </span>
-          <span className="flex items-center gap-1">
-            <span className="bg-muted-foreground/40 h-1.5 w-1.5 rounded-full" />
-            Discarded
-          </span>
         </div>
       </div>
 
@@ -215,11 +208,9 @@ export function HistoryCalendar({
                       ? "Planned"
                       : s.status === "IN_PROGRESS"
                         ? "In progress"
-                        : s.status === "DISCARDED"
-                          ? "Discarded"
-                          : s.type === "STRENGTH"
-                            ? "Strength"
-                            : "Run"}
+                        : s.type === "STRENGTH"
+                          ? "Strength"
+                          : "Run"}
                     {s.status === "COMPLETED" &&
                       ` · ${s.exerciseCount} exercise${s.exerciseCount === 1 ? "" : "s"} · ${s.setCount} set${s.setCount === 1 ? "" : "s"}`}
                     {s.difficultyRating != null &&
