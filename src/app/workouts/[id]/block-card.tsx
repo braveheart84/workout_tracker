@@ -32,6 +32,10 @@ type BlockWithExercises = {
     targetDistanceMeters: number | null;
     exercise: Exercise;
     sets: WorkoutSet[];
+    firstRoundWeightSuggestion: {
+      weight: number;
+      weightUnit: WeightUnit;
+    } | null;
   }[];
 };
 

@@ -18,6 +18,7 @@ export function RoundSets({
   defaultWeightUnit,
   disabled,
   currentRound,
+  firstRoundWeightSuggestion,
 }: {
   sessionId: string;
   workoutExerciseId: string;
@@ -28,6 +29,10 @@ export function RoundSets({
   defaultWeightUnit: WeightUnit;
   disabled: boolean;
   currentRound: number | null;
+  // Round 1's suggested starting weight (AI target if generated, else the
+  // most recently logged weight for this exercise), or null when there's
+  // neither.
+  firstRoundWeightSuggestion: { weight: number; weightUnit: WeightUnit } | null;
 }) {
   const rounds = Array.from({ length: roundCount }, (_, i) => i + 1);
 
@@ -37,6 +42,19 @@ export function RoundSets({
     .filter((s) => s.roundNumber === 1)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   const round1Defaults = round1Sets[round1Sets.length - 1];
+  // Round 1 itself has no logged sets yet to carry forward from, so it
+  // gets just the weight suggestion (reps/duration/distance stay blank -
+  // those aren't something the AI target or history should silently
+  // fill in for the very first attempt).
+  const firstRoundDefaults = firstRoundWeightSuggestion
+    ? {
+        reps: null,
+        weight: firstRoundWeightSuggestion.weight,
+        weightUnit: firstRoundWeightSuggestion.weightUnit,
+        durationSeconds: null,
+        distanceMeters: null,
+      }
+    : undefined;
 
   return (
     <div className="space-y-3 text-xs">
@@ -92,7 +110,7 @@ export function RoundSets({
                 target={target}
                 defaultWeightUnit={defaultWeightUnit}
                 hasLoggedSets={roundSets.length > 0}
-                defaults={round > 1 ? round1Defaults : undefined}
+                defaults={round > 1 ? round1Defaults : firstRoundDefaults}
               />
             )}
             {!disabled && setType !== "DURATION" && (
@@ -105,7 +123,7 @@ export function RoundSets({
                 target={target}
                 defaultWeightUnit={defaultWeightUnit}
                 hasLoggedSets={roundSets.length > 0}
-                defaults={round > 1 ? round1Defaults : undefined}
+                defaults={round > 1 ? round1Defaults : firstRoundDefaults}
               />
             )}
           </div>

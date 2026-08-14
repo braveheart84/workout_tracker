@@ -30,6 +30,10 @@ export function SupersetRounds({
     targetDistanceMeters: number | null;
     exercise: Exercise;
     sets: WorkoutSet[];
+    firstRoundWeightSuggestion: {
+      weight: number;
+      weightUnit: WeightUnit;
+    } | null;
   }[];
   defaultWeightUnit: WeightUnit;
   disabled: boolean;
@@ -66,6 +70,17 @@ export function SupersetRounds({
                 .filter((s) => s.roundNumber === 1)
                 .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
               const round1Defaults = round1Sets[round1Sets.length - 1];
+              // Round 1 itself has no logged sets to carry forward from,
+              // so it gets just the weight suggestion.
+              const firstRoundDefaults = we.firstRoundWeightSuggestion
+                ? {
+                    reps: null,
+                    weight: we.firstRoundWeightSuggestion.weight,
+                    weightUnit: we.firstRoundWeightSuggestion.weightUnit,
+                    durationSeconds: null,
+                    distanceMeters: null,
+                  }
+                : undefined;
 
               return (
                 <div
@@ -114,7 +129,7 @@ export function SupersetRounds({
                       target={target}
                       defaultWeightUnit={defaultWeightUnit}
                       hasLoggedSets={roundSets.length > 0}
-                      defaults={round > 1 ? round1Defaults : undefined}
+                      defaults={round > 1 ? round1Defaults : firstRoundDefaults}
                     />
                   )}
                   {!disabled && setType !== "DURATION" && (
@@ -127,7 +142,7 @@ export function SupersetRounds({
                       target={target}
                       defaultWeightUnit={defaultWeightUnit}
                       hasLoggedSets={roundSets.length > 0}
-                      defaults={round > 1 ? round1Defaults : undefined}
+                      defaults={round > 1 ? round1Defaults : firstRoundDefaults}
                     />
                   )}
                 </div>
