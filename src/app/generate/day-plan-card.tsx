@@ -11,6 +11,7 @@ import {
   type GenerateFormState,
   type AcceptDayFormState,
 } from "./actions";
+import { SuggestionHistory } from "./suggestion-history";
 
 // One day's review card within a multi-day plan (PR-16). Reuses the same
 // single-day actions as GenerateForm for regenerate and revise - only
@@ -138,50 +139,7 @@ export function DayPlanCard({
         </p>
       ) : (
         <>
-          {history.length > 0 && (
-            <div className="space-y-2 border-t pt-3">
-              <p className="text-sm font-medium">
-                Previous version{history.length === 1 ? "" : "s"} (
-                {history.length})
-              </p>
-              <ul className="space-y-2">
-                {history
-                  .map((version, index) => ({ version, index }))
-                  .reverse()
-                  .map(({ version, index }) => {
-                    const blockCount = version.blocks.length;
-                    const exerciseCount = version.blocks.reduce(
-                      (sum, b) => sum + b.exercises.length,
-                      0,
-                    );
-                    return (
-                      <li
-                        key={index}
-                        className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {version.label || "Suggested Workout"}
-                          </p>
-                          <p className="text-muted-foreground">
-                            {blockCount} block{blockCount === 1 ? "" : "s"} ·{" "}
-                            {exerciseCount} exercise
-                            {exerciseCount === 1 ? "" : "s"}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => restoreVersion(index)}
-                          className="shrink-0 underline"
-                        >
-                          View
-                        </button>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
-          )}
+          <SuggestionHistory history={history} onRestore={restoreVersion} />
 
           <form action={reviseAction} className="space-y-2 border-t pt-3">
             <input

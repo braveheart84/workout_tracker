@@ -10,6 +10,7 @@ import {
   type GenerateFormState,
   type AcceptFormState,
 } from "./actions";
+import { SuggestionHistory } from "./suggestion-history";
 
 export function GenerateForm({
   todayIso,
@@ -228,50 +229,10 @@ export function GenerateForm({
             ))}
           </ul>
 
-          {history.length > 0 && (
-            <div className="space-y-2 border-t pt-3">
-              <p className="text-sm font-medium">
-                Previous version{history.length === 1 ? "" : "s"} (
-                {history.length})
-              </p>
-              <ul className="space-y-2">
-                {history
-                  .map((version, index) => ({ version, index }))
-                  .reverse()
-                  .map(({ version, index }) => {
-                    const blockCount = version.suggestion.blocks.length;
-                    const exerciseCount = version.suggestion.blocks.reduce(
-                      (sum, b) => sum + b.exercises.length,
-                      0,
-                    );
-                    return (
-                      <li
-                        key={index}
-                        className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {version.suggestion.label || "Suggested Workout"}
-                          </p>
-                          <p className="text-muted-foreground">
-                            {blockCount} block{blockCount === 1 ? "" : "s"} ·{" "}
-                            {exerciseCount} exercise
-                            {exerciseCount === 1 ? "" : "s"}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => restoreVersion(index)}
-                          className="shrink-0 underline"
-                        >
-                          View
-                        </button>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
-          )}
+          <SuggestionHistory
+            history={history.map((h) => h.suggestion)}
+            onRestore={restoreVersion}
+          />
 
           <form action={reviseAction} className="space-y-2 border-t pt-3">
             <input
