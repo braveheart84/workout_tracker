@@ -11,6 +11,7 @@ import {
   type GenerateFormState,
   type AcceptDayFormState,
 } from "./actions";
+import { SuggestionHistory } from "./suggestion-history";
 
 // One day's review card within a multi-day plan (PR-16). Reuses the same
 // single-day actions as GenerateForm for regenerate and revise - only
@@ -42,6 +43,11 @@ export function DayPlanCard({
   >(acceptDayInPlanAction, undefined);
 
   const [current, setCurrent] = useState<WorkoutSuggestion>(initialSuggestion);
+  // Every version that used to be `current` before a Revise/Start Over
+  // replaced it - lets the user go back to an earlier suggestion they
+  // liked better, without re-generating. Page-local only (not persisted),
+  // since it's just a within-this-generation-session convenience.
+  const [history, setHistory] = useState<WorkoutSuggestion[]>([]);
   // The one shared textbox behind both "Revise" and "Start Over" - which
   // action fires is decided by which button is clicked (each specifies its
   // own formAction), not by which of two separate boxes the text sits in.
@@ -50,6 +56,7 @@ export function DayPlanCard({
   if (genState !== prevGenState) {
     setPrevGenState(genState);
     if (genState?.suggestion) {
+      setHistory((h) => [...h, current]);
       setCurrent(genState.suggestion);
       setFeedbackText("");
     }
@@ -58,12 +65,27 @@ export function DayPlanCard({
   if (reviseState !== prevReviseState) {
     setPrevReviseState(reviseState);
     if (reviseState?.suggestion) {
+      setHistory((h) => [...h, current]);
       setCurrent(reviseState.suggestion);
       setFeedbackText("");
     }
   }
 
   const accepted = Boolean(acceptState?.sessionId);
+
+  // Swaps in an earlier version as the current one, keeping what's being
+  // replaced around in history too - so flipping back and forth between
+  // versions never loses either one.
+  function restoreVersion(index: number) {
+    const target = history[index];
+    if (!target) return;
+    setHistory((h) => {
+      const rest = h.filter((_, i) => i !== index);
+      return [...rest, current];
+    });
+    setCurrent(target);
+    setFeedbackText("");
+  }
 
   return (
     <div className="space-y-3 rounded-md border p-4">
@@ -117,6 +139,8 @@ export function DayPlanCard({
         </p>
       ) : (
         <>
+          <SuggestionHistory history={history} onRestore={restoreVersion} />
+
           <form action={reviseAction} className="space-y-2 border-t pt-3">
             <input
               type="hidden"
