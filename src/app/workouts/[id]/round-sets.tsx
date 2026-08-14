@@ -48,14 +48,14 @@ export function RoundSets({
                 : "space-y-1 border-t pt-3 first:border-t-0 first:pt-0"
             }
           >
-            <p className="text-muted-foreground font-medium">
-              Round {round}
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-muted-foreground font-medium">Round {round}</p>
               {isCurrent && (
-                <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                <span className="bg-primary text-primary-foreground shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
                   Up next
                 </span>
               )}
-            </p>
+            </div>
             {roundSets.length > 0 && (
               <ul className="space-y-1">
                 {roundSets.map((set) => (

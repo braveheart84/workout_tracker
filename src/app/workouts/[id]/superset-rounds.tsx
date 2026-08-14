@@ -69,14 +69,14 @@ export function SupersetRounds({
                       : "space-y-1 pt-2 first:pt-0"
                   }
                 >
-                  <p className="text-lg font-semibold">
-                    {we.exercise.name}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-lg font-semibold">{we.exercise.name}</p>
                     {isCurrent && (
-                      <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                      <span className="bg-primary text-primary-foreground shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
                         Up next
                       </span>
                     )}
-                  </p>
+                  </div>
                   {roundSets.length > 0 && (
                     <ul className="space-y-1">
                       {roundSets.map((set) => (
