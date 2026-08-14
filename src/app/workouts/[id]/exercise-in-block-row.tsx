@@ -36,6 +36,10 @@ export function ExerciseInBlockRow({
     targetDistanceMeters: number | null;
     exercise: Exercise;
     sets: WorkoutSet[];
+    firstRoundWeightSuggestion: {
+      weight: number;
+      weightUnit: WeightUnit;
+    } | null;
   };
   defaultWeightUnit: WeightUnit;
   disabled: boolean;
@@ -146,6 +150,9 @@ export function ExerciseInBlockRow({
           defaultWeightUnit={defaultWeightUnit}
           disabled={disabled}
           currentRound={currentRound}
+          firstRoundWeightSuggestion={
+            workoutExercise.firstRoundWeightSuggestion
+          }
         />
       )}
     </li>

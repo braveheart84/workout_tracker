@@ -61,6 +61,69 @@ export default async function WorkoutSessionPage({
   ]);
 
   const defaultWeightUnit = user.unitSystem === "IMPERIAL" ? "LB" : "KG";
+
+  // Round 1's weight suggestion for each exercise, so the user isn't
+  // starting from a blank box on their first set: an AI-generated exercise
+  // already has a targetWeight that factored in progressive overload at
+  // generation time (PR-19's adaptive generation), so that wins when
+  // present. A manually-added exercise has no target, so it falls back to
+  // the most recent weight logged for that same exercise in a past
+  // session - not bumped further, since there's no generation-time signal
+  // (difficulty trend, performance deltas) to base an increase on outside
+  // the AI path.
+  const exerciseIds = [
+    ...new Set(
+      blocks.flatMap((b) => b.workoutExercises.map((we) => we.exerciseId)),
+    ),
+  ];
+  const recentWeightSets =
+    exerciseIds.length > 0
+      ? await prisma.set.findMany({
+          where: {
+            weight: { not: null },
+            workoutExercise: {
+              exerciseId: { in: exerciseIds },
+              block: { session: { userId: session.user.id, id: { not: id } } },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            weight: true,
+            weightUnit: true,
+            workoutExercise: { select: { exerciseId: true } },
+          },
+        })
+      : [];
+  const lastWeightByExerciseId = new Map<
+    string,
+    { weight: number; weightUnit: "KG" | "LB" }
+  >();
+  for (const set of recentWeightSets) {
+    const exerciseId = set.workoutExercise.exerciseId;
+    if (
+      !lastWeightByExerciseId.has(exerciseId) &&
+      set.weight != null &&
+      set.weightUnit
+    ) {
+      lastWeightByExerciseId.set(exerciseId, {
+        weight: set.weight,
+        weightUnit: set.weightUnit,
+      });
+    }
+  }
+  const blocksWithWeightSuggestions = blocks.map((block) => ({
+    ...block,
+    workoutExercises: block.workoutExercises.map((we) => ({
+      ...we,
+      firstRoundWeightSuggestion:
+        we.targetWeight != null
+          ? {
+              weight: we.targetWeight,
+              weightUnit: we.targetWeightUnit ?? defaultWeightUnit,
+            }
+          : (lastWeightByExerciseId.get(we.exerciseId) ?? null),
+    })),
+  }));
   const isInProgress = workoutSession.status === "IN_PROGRESS";
   const isPlanned = workoutSession.status === "PLANNED";
   const timezone = await getUserTimezone();
@@ -87,7 +150,7 @@ export default async function WorkoutSessionPage({
 
         <BlocksManager
           sessionId={id}
-          blocks={blocks}
+          blocks={blocksWithWeightSuggestions}
           exercises={exercises}
           defaultWeightUnit={defaultWeightUnit}
           disabled={!isInProgress}

@@ -20,6 +20,13 @@ type BlockWithExercises = {
     targetDistanceMeters: number | null;
     exercise: Exercise;
     sets: WorkoutSet[];
+    // Round 1's suggested starting weight (AI target if generated, else
+    // the most recently logged weight for this exercise), or null when
+    // there's neither.
+    firstRoundWeightSuggestion: {
+      weight: number;
+      weightUnit: WeightUnit;
+    } | null;
   }[];
 };
 
