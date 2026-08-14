@@ -42,6 +42,11 @@ export function DayPlanCard({
   >(acceptDayInPlanAction, undefined);
 
   const [current, setCurrent] = useState<WorkoutSuggestion>(initialSuggestion);
+  // Every version that used to be `current` before a Revise/Start Over
+  // replaced it - lets the user go back to an earlier suggestion they
+  // liked better, without re-generating. Page-local only (not persisted),
+  // since it's just a within-this-generation-session convenience.
+  const [history, setHistory] = useState<WorkoutSuggestion[]>([]);
   // The one shared textbox behind both "Revise" and "Start Over" - which
   // action fires is decided by which button is clicked (each specifies its
   // own formAction), not by which of two separate boxes the text sits in.
@@ -50,6 +55,7 @@ export function DayPlanCard({
   if (genState !== prevGenState) {
     setPrevGenState(genState);
     if (genState?.suggestion) {
+      setHistory((h) => [...h, current]);
       setCurrent(genState.suggestion);
       setFeedbackText("");
     }
@@ -58,12 +64,27 @@ export function DayPlanCard({
   if (reviseState !== prevReviseState) {
     setPrevReviseState(reviseState);
     if (reviseState?.suggestion) {
+      setHistory((h) => [...h, current]);
       setCurrent(reviseState.suggestion);
       setFeedbackText("");
     }
   }
 
   const accepted = Boolean(acceptState?.sessionId);
+
+  // Swaps in an earlier version as the current one, keeping what's being
+  // replaced around in history too - so flipping back and forth between
+  // versions never loses either one.
+  function restoreVersion(index: number) {
+    const target = history[index];
+    if (!target) return;
+    setHistory((h) => {
+      const rest = h.filter((_, i) => i !== index);
+      return [...rest, current];
+    });
+    setCurrent(target);
+    setFeedbackText("");
+  }
 
   return (
     <div className="space-y-3 rounded-md border p-4">
@@ -117,6 +138,51 @@ export function DayPlanCard({
         </p>
       ) : (
         <>
+          {history.length > 0 && (
+            <div className="space-y-2 border-t pt-3">
+              <p className="text-sm font-medium">
+                Previous version{history.length === 1 ? "" : "s"} (
+                {history.length})
+              </p>
+              <ul className="space-y-2">
+                {history
+                  .map((version, index) => ({ version, index }))
+                  .reverse()
+                  .map(({ version, index }) => {
+                    const blockCount = version.blocks.length;
+                    const exerciseCount = version.blocks.reduce(
+                      (sum, b) => sum + b.exercises.length,
+                      0,
+                    );
+                    return (
+                      <li
+                        key={index}
+                        className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {version.label || "Suggested Workout"}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {blockCount} block{blockCount === 1 ? "" : "s"} ·{" "}
+                            {exerciseCount} exercise
+                            {exerciseCount === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => restoreVersion(index)}
+                          className="shrink-0 underline"
+                        >
+                          View
+                        </button>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
+          )}
+
           <form action={reviseAction} className="space-y-2 border-t pt-3">
             <input
               type="hidden"
