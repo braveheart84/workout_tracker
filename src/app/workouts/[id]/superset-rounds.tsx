@@ -59,6 +59,13 @@ export function SupersetRounds({
                 .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
               const isCurrent =
                 current?.workoutExerciseId === we.id && current.round === round;
+              // Round 1's last logged set for this exercise, used to
+              // pre-fill rounds 2+ so the user isn't retyping the same
+              // reps/weight (and weight unit) every round.
+              const round1Sets = we.sets
+                .filter((s) => s.roundNumber === 1)
+                .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+              const round1Defaults = round1Sets[round1Sets.length - 1];
 
               return (
                 <div
@@ -96,16 +103,23 @@ export function SupersetRounds({
                   )}
                   {!disabled && setType === "DURATION" && (
                     <DurationLogging
+                      // Remounts (picking up a fresh defaultValue) if
+                      // round 1 gets logged/edited after this round
+                      // already rendered - defaultValue only applies at
+                      // mount otherwise.
+                      key={round > 1 ? (round1Defaults?.id ?? "none") : "self"}
                       sessionId={sessionId}
                       workoutExerciseId={we.id}
                       roundNumber={round}
                       target={target}
                       defaultWeightUnit={defaultWeightUnit}
                       hasLoggedSets={roundSets.length > 0}
+                      defaults={round > 1 ? round1Defaults : undefined}
                     />
                   )}
                   {!disabled && setType !== "DURATION" && (
                     <AddSetForm
+                      key={round > 1 ? (round1Defaults?.id ?? "none") : "self"}
                       sessionId={sessionId}
                       workoutExerciseId={we.id}
                       roundNumber={round}
@@ -113,6 +127,7 @@ export function SupersetRounds({
                       target={target}
                       defaultWeightUnit={defaultWeightUnit}
                       hasLoggedSets={roundSets.length > 0}
+                      defaults={round > 1 ? round1Defaults : undefined}
                     />
                   )}
                 </div>

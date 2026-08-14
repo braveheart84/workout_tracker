@@ -12,6 +12,7 @@ export function DurationLogging({
   target,
   defaultWeightUnit,
   hasLoggedSets,
+  defaults,
 }: {
   sessionId: string;
   workoutExerciseId: string;
@@ -19,6 +20,15 @@ export function DurationLogging({
   target: number | null;
   defaultWeightUnit: WeightUnit;
   hasLoggedSets: boolean;
+  // Round 1's logged values for this exercise, if any - pre-fills rounds
+  // 2+ so the user isn't retyping the same duration/weight every round.
+  defaults?: {
+    reps: number | null;
+    weight: number | null;
+    weightUnit: WeightUnit | null;
+    durationSeconds: number | null;
+    distanceMeters: number | null;
+  };
 }) {
   const [showManual, setShowManual] = useState(false);
 
@@ -29,6 +39,7 @@ export function DurationLogging({
         workoutExerciseId={workoutExerciseId}
         roundNumber={roundNumber}
         defaultWeightUnit={defaultWeightUnit}
+        defaults={defaults}
       />
       {showManual ? (
         <AddSetForm
@@ -39,6 +50,7 @@ export function DurationLogging({
           target={target}
           defaultWeightUnit={defaultWeightUnit}
           hasLoggedSets={hasLoggedSets}
+          defaults={defaults}
         />
       ) : (
         <button

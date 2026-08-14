@@ -31,6 +31,13 @@ export function RoundSets({
 }) {
   const rounds = Array.from({ length: roundCount }, (_, i) => i + 1);
 
+  // Round 1's last logged set, used to pre-fill rounds 2+ so the user
+  // isn't retyping the same reps/weight (and weight unit) every round.
+  const round1Sets = sets
+    .filter((s) => s.roundNumber === 1)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const round1Defaults = round1Sets[round1Sets.length - 1];
+
   return (
     <div className="space-y-3 text-xs">
       {rounds.map((round) => {
@@ -75,16 +82,22 @@ export function RoundSets({
             )}
             {!disabled && setType === "DURATION" && (
               <DurationLogging
+                // Remounts (picking up a fresh defaultValue) if round 1
+                // gets logged/edited after this round already rendered -
+                // defaultValue only applies at mount otherwise.
+                key={round > 1 ? (round1Defaults?.id ?? "none") : "self"}
                 sessionId={sessionId}
                 workoutExerciseId={workoutExerciseId}
                 roundNumber={round}
                 target={target}
                 defaultWeightUnit={defaultWeightUnit}
                 hasLoggedSets={roundSets.length > 0}
+                defaults={round > 1 ? round1Defaults : undefined}
               />
             )}
             {!disabled && setType !== "DURATION" && (
               <AddSetForm
+                key={round > 1 ? (round1Defaults?.id ?? "none") : "self"}
                 sessionId={sessionId}
                 workoutExerciseId={workoutExerciseId}
                 roundNumber={round}
@@ -92,6 +105,7 @@ export function RoundSets({
                 target={target}
                 defaultWeightUnit={defaultWeightUnit}
                 hasLoggedSets={roundSets.length > 0}
+                defaults={round > 1 ? round1Defaults : undefined}
               />
             )}
           </div>

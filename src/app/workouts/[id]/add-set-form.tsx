@@ -13,6 +13,7 @@ export function AddSetForm({
   target,
   defaultWeightUnit,
   hasLoggedSets = false,
+  defaults,
 }: {
   sessionId: string;
   workoutExerciseId: string;
@@ -26,6 +27,15 @@ export function AddSetForm({
   // collapses back down to the "+ Log another set" link, regardless of
   // this value, so stray reps/weight boxes don't linger on screen.
   hasLoggedSets?: boolean;
+  // Round 1's logged values for this exercise, if any - pre-fills rounds
+  // 2+ so the user isn't retyping the same reps/weight every round.
+  defaults?: {
+    reps: number | null;
+    weight: number | null;
+    weightUnit: WeightUnit | null;
+    durationSeconds: number | null;
+    distanceMeters: number | null;
+  };
 }) {
   const boundAdd = addSetAction.bind(
     null,
@@ -68,6 +78,7 @@ export function AddSetForm({
           setType={setType}
           target={target}
           defaultWeightUnit={defaultWeightUnit}
+          defaults={defaults}
           actions={
             <>
               <button
