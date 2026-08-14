@@ -24,15 +24,27 @@ export function DurationTimer({
   workoutExerciseId,
   roundNumber,
   defaultWeightUnit,
+  defaults,
 }: {
   sessionId: string;
   workoutExerciseId: string;
   roundNumber: number;
   defaultWeightUnit: WeightUnit;
+  // Round 1's logged values for this exercise, if any - pre-fills rounds
+  // 2+ so the user isn't retyping the same duration/weight every round.
+  defaults?: {
+    weight: number | null;
+    weightUnit: WeightUnit | null;
+    durationSeconds: number | null;
+  };
 }) {
-  const [targetSeconds, setTargetSeconds] = useState(60);
-  const [weight, setWeight] = useState("");
-  const [weightUnit, setWeightUnit] = useState<WeightUnit>(defaultWeightUnit);
+  const [targetSeconds, setTargetSeconds] = useState(
+    defaults?.durationSeconds ?? 60,
+  );
+  const [weight, setWeight] = useState(defaults?.weight?.toString() ?? "");
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>(
+    defaults?.weightUnit ?? defaultWeightUnit,
+  );
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -59,6 +59,13 @@ export function SupersetRounds({
                 .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
               const isCurrent =
                 current?.workoutExerciseId === we.id && current.round === round;
+              // Round 1's last logged set for this exercise, used to
+              // pre-fill rounds 2+ so the user isn't retyping the same
+              // reps/weight (and weight unit) every round.
+              const round1Sets = we.sets
+                .filter((s) => s.roundNumber === 1)
+                .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+              const round1Defaults = round1Sets[round1Sets.length - 1];
 
               return (
                 <div
@@ -69,14 +76,14 @@ export function SupersetRounds({
                       : "space-y-1 pt-2 first:pt-0"
                   }
                 >
-                  <p className="text-lg font-semibold">
-                    {we.exercise.name}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-lg font-semibold">{we.exercise.name}</p>
                     {isCurrent && (
-                      <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                      <span className="bg-primary text-primary-foreground shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
                         Up next
                       </span>
                     )}
-                  </p>
+                  </div>
                   {roundSets.length > 0 && (
                     <ul className="space-y-1">
                       {roundSets.map((set) => (
@@ -96,16 +103,23 @@ export function SupersetRounds({
                   )}
                   {!disabled && setType === "DURATION" && (
                     <DurationLogging
+                      // Remounts (picking up a fresh defaultValue) if
+                      // round 1 gets logged/edited after this round
+                      // already rendered - defaultValue only applies at
+                      // mount otherwise.
+                      key={round > 1 ? (round1Defaults?.id ?? "none") : "self"}
                       sessionId={sessionId}
                       workoutExerciseId={we.id}
                       roundNumber={round}
                       target={target}
                       defaultWeightUnit={defaultWeightUnit}
                       hasLoggedSets={roundSets.length > 0}
+                      defaults={round > 1 ? round1Defaults : undefined}
                     />
                   )}
                   {!disabled && setType !== "DURATION" && (
                     <AddSetForm
+                      key={round > 1 ? (round1Defaults?.id ?? "none") : "self"}
                       sessionId={sessionId}
                       workoutExerciseId={we.id}
                       roundNumber={round}
@@ -113,6 +127,7 @@ export function SupersetRounds({
                       target={target}
                       defaultWeightUnit={defaultWeightUnit}
                       hasLoggedSets={roundSets.length > 0}
+                      defaults={round > 1 ? round1Defaults : undefined}
                     />
                   )}
                 </div>

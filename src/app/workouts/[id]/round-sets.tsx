@@ -31,6 +31,13 @@ export function RoundSets({
 }) {
   const rounds = Array.from({ length: roundCount }, (_, i) => i + 1);
 
+  // Round 1's last logged set, used to pre-fill rounds 2+ so the user
+  // isn't retyping the same reps/weight (and weight unit) every round.
+  const round1Sets = sets
+    .filter((s) => s.roundNumber === 1)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const round1Defaults = round1Sets[round1Sets.length - 1];
+
   return (
     <div className="space-y-3 text-xs">
       {rounds.map((round) => {
@@ -48,14 +55,14 @@ export function RoundSets({
                 : "space-y-1 border-t pt-3 first:border-t-0 first:pt-0"
             }
           >
-            <p className="text-muted-foreground font-medium">
-              Round {round}
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-muted-foreground font-medium">Round {round}</p>
               {isCurrent && (
-                <span className="bg-primary text-primary-foreground ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                <span className="bg-primary text-primary-foreground shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap">
                   Up next
                 </span>
               )}
-            </p>
+            </div>
             {roundSets.length > 0 && (
               <ul className="space-y-1">
                 {roundSets.map((set) => (
@@ -75,16 +82,22 @@ export function RoundSets({
             )}
             {!disabled && setType === "DURATION" && (
               <DurationLogging
+                // Remounts (picking up a fresh defaultValue) if round 1
+                // gets logged/edited after this round already rendered -
+                // defaultValue only applies at mount otherwise.
+                key={round > 1 ? (round1Defaults?.id ?? "none") : "self"}
                 sessionId={sessionId}
                 workoutExerciseId={workoutExerciseId}
                 roundNumber={round}
                 target={target}
                 defaultWeightUnit={defaultWeightUnit}
                 hasLoggedSets={roundSets.length > 0}
+                defaults={round > 1 ? round1Defaults : undefined}
               />
             )}
             {!disabled && setType !== "DURATION" && (
               <AddSetForm
+                key={round > 1 ? (round1Defaults?.id ?? "none") : "self"}
                 sessionId={sessionId}
                 workoutExerciseId={workoutExerciseId}
                 roundNumber={round}
@@ -92,6 +105,7 @@ export function RoundSets({
                 target={target}
                 defaultWeightUnit={defaultWeightUnit}
                 hasLoggedSets={roundSets.length > 0}
+                defaults={round > 1 ? round1Defaults : undefined}
               />
             )}
           </div>
