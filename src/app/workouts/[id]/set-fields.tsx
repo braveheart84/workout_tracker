@@ -43,7 +43,7 @@ export function SetFields({
             required
             aria-label="Reps"
             defaultValue={defaults?.reps ?? undefined}
-            className="border-input bg-background w-12 min-w-0 [appearance:textfield] rounded-md border px-1.5 py-1.5 text-base font-semibold [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="border-input bg-background w-16 min-w-0 [appearance:textfield] rounded-md border px-1.5 py-1.5 text-base font-semibold [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
           {target != null && (
             <span className="text-muted-foreground shrink-0 text-base font-semibold">
@@ -62,7 +62,7 @@ export function SetFields({
             required
             aria-label="Seconds"
             defaultValue={defaults?.durationSeconds ?? undefined}
-            className="border-input bg-background w-14 min-w-0 [appearance:textfield] rounded-md border px-1.5 py-1.5 text-base font-semibold [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="border-input bg-background w-16 min-w-0 [appearance:textfield] rounded-md border px-1.5 py-1.5 text-base font-semibold [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
           {target != null && (
             <span className="text-muted-foreground shrink-0 text-base font-semibold">
@@ -81,7 +81,7 @@ export function SetFields({
             required
             aria-label="Meters"
             defaultValue={defaults?.distanceMeters ?? undefined}
-            className="border-input bg-background w-14 min-w-0 [appearance:textfield] rounded-md border px-1.5 py-1.5 text-base font-semibold [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="border-input bg-background w-16 min-w-0 [appearance:textfield] rounded-md border px-1.5 py-1.5 text-base font-semibold [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
           {target != null && (
             <span className="text-muted-foreground shrink-0 text-base font-semibold">

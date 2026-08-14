@@ -86,7 +86,7 @@ export function AddSetForm({
                 disabled={pending}
                 className="bg-primary text-primary-foreground shrink-0 rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-50"
               >
-                {pending ? "Logging…" : "Log set"}
+                {pending ? "Logging…" : "Log"}
               </button>
               {hasLoggedSets && (
                 <button
