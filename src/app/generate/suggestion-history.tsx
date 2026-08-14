@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { formatSetSummary } from "@/lib/format-set-summary";
 import type { WorkoutSuggestion } from "@/lib/workout-suggestion-schema";
@@ -19,6 +19,20 @@ export function SuggestionHistory({
 }) {
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const previewVersion = previewIndex != null ? history[previewIndex] : null;
+
+  // Locks background scroll while the dialog is open - without this, a
+  // touch/wheel scroll starting on the sheet (most noticeable when its
+  // content is short and there's nowhere left for it to scroll internally)
+  // chains through to the page behind, since position:fixed alone doesn't
+  // stop that on mobile.
+  useEffect(() => {
+    if (previewIndex === null) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [previewIndex]);
 
   if (history.length === 0) {
     return null;
@@ -73,7 +87,7 @@ export function SuggestionHistory({
             onClick={() => setPreviewIndex(null)}
             className="absolute inset-0 bg-black/40"
           />
-          <div className="bg-card absolute inset-x-0 bottom-0 max-h-[80vh] space-y-3 overflow-y-auto rounded-t-2xl border-t p-4">
+          <div className="bg-card absolute inset-x-0 bottom-0 max-h-[80vh] space-y-3 overflow-y-auto overscroll-contain rounded-t-2xl border-t p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Previous version</p>
               <button
