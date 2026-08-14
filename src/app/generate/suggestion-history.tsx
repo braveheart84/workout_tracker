@@ -21,16 +21,37 @@ export function SuggestionHistory({
   const previewVersion = previewIndex != null ? history[previewIndex] : null;
 
   // Locks background scroll while the dialog is open - without this, a
-  // touch/wheel scroll starting on the sheet (most noticeable when its
-  // content is short and there's nowhere left for it to scroll internally)
-  // chains through to the page behind, since position:fixed alone doesn't
-  // stop that on mobile.
+  // touch scroll starting on the sheet (most noticeable when its content is
+  // short and there's nowhere left for it to scroll internally) chains
+  // through to the page behind. `overflow: hidden` on body alone doesn't
+  // reliably stop this on iOS Safari - it still allows touch-driven
+  // rubber-band scrolling of whatever's behind a fixed overlay. Pinning the
+  // body itself with position:fixed at its current scroll offset is the
+  // standard workaround that actually holds there, restoring position and
+  // scroll position together on close.
   useEffect(() => {
     if (previewIndex === null) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const previous = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
     return () => {
-      document.body.style.overflow = previousOverflow;
+      body.style.position = previous.position;
+      body.style.top = previous.top;
+      body.style.left = previous.left;
+      body.style.right = previous.right;
+      body.style.width = previous.width;
+      window.scrollTo(0, scrollY);
     };
   }, [previewIndex]);
 
