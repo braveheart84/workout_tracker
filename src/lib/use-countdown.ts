@@ -23,6 +23,14 @@ export function useCountdown(
   // while backgrounded) instead of resuming from a stale count.
   const deadlineRef = useRef(0);
   const remainingAtPauseRef = useRef(totalSeconds);
+  // Guards onComplete from firing twice - not just a defensive nicety:
+  // calling it from inside the setStatus updater below would make that
+  // updater impure (it'd have a side effect), which React intentionally
+  // double-invokes in development (Strict Mode) to catch exactly that,
+  // so the alert sound/vibration/notification would actually fire twice
+  // on every dev build. A ref checked before a plain setStatus call
+  // keeps the updater pure and completion firing exactly once.
+  const completedRef = useRef(false);
 
   const tick = useCallback(() => {
     const remaining = Math.max(
@@ -30,12 +38,10 @@ export function useCountdown(
       Math.ceil((deadlineRef.current - Date.now()) / 1000),
     );
     setSecondsLeft(remaining);
-    if (remaining <= 0) {
-      setStatus((s) => {
-        if (s !== "running") return s;
-        onCompleteRef.current(totalSeconds);
-        return "done";
-      });
+    if (remaining <= 0 && !completedRef.current) {
+      completedRef.current = true;
+      setStatus("done");
+      onCompleteRef.current(totalSeconds);
     }
   }, [totalSeconds]);
 
@@ -57,6 +63,7 @@ export function useCountdown(
 
   const start = useCallback(() => {
     deadlineRef.current = Date.now() + totalSeconds * 1000;
+    completedRef.current = false;
     setSecondsLeft(totalSeconds);
     setStatus("running");
   }, [totalSeconds]);
@@ -75,6 +82,8 @@ export function useCountdown(
   }, []);
 
   const skip = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
     const remaining = Math.max(
       0,
       Math.ceil((deadlineRef.current - Date.now()) / 1000),
@@ -85,6 +94,7 @@ export function useCountdown(
   }, [totalSeconds]);
 
   const reset = useCallback(() => {
+    completedRef.current = false;
     setSecondsLeft(totalSeconds);
     setStatus("idle");
   }, [totalSeconds]);

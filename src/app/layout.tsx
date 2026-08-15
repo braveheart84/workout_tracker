@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { AudioUnlock } from "@/components/audio-unlock";
 import { TimezoneSync } from "@/components/timezone-sync";
 import { UpdateChecker } from "@/components/update-checker";
 import "./globals.css";
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <AudioUnlock />
         <TimezoneSync />
         <UpdateChecker />
         {children}

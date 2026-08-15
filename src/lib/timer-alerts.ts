@@ -7,15 +7,50 @@ import { useEffect, useRef } from "react";
 // feature-detected - a browser that lacks or denies one of these just loses
 // that specific alert channel instead of breaking the timer.
 
-export function playAlertSound() {
-  if (typeof window === "undefined") return;
+// A single AudioContext, reused for every alert rather than created fresh
+// each time. Browsers only let an AudioContext produce sound once it's been
+// created/resumed inside a real user gesture (click/tap) - a timer's
+// completion callback fires from a setInterval or a visibilitychange
+// handler, neither of which counts, so a context created there is born
+// "suspended" and its sound is silently dropped. Reusing one context that
+// gets unlocked elsewhere (see unlockAlertAudio below) sidesteps that.
+let sharedAudioContext: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (sharedAudioContext) return sharedAudioContext;
+  const AudioContextClass =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (!AudioContextClass) return null;
   try {
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
+    sharedAudioContext = new AudioContextClass();
+    return sharedAudioContext;
+  } catch {
+    return null;
+  }
+}
+
+// Call this from an actual click/tap handler (anywhere in the app, not
+// necessarily timer-related) to unlock the shared AudioContext well before
+// any timer alert needs to play through it.
+export function unlockAlertAudio() {
+  const ctx = getAudioContext();
+  if (ctx?.state === "suspended") {
+    ctx.resume().catch(() => {
+      // still locked - the alert will just stay silent this session
+    });
+  }
+}
+
+export function playAlertSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  try {
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
     oscillator.connect(gain);
@@ -24,7 +59,6 @@ export function playAlertSound() {
     gain.gain.setValueAtTime(0.2, ctx.currentTime);
     oscillator.start();
     oscillator.stop(ctx.currentTime + 0.3);
-    oscillator.onended = () => ctx.close();
   } catch {
     // sound is a nice-to-have, not required
   }
