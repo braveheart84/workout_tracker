@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useCountdown } from "@/lib/use-countdown";
 import { formatTime } from "@/lib/format-time";
 import {
   alertTimerDone,
-  releaseWakeLock,
   requestNotificationPermission,
-  requestWakeLock,
+  useWakeLock,
 } from "@/lib/timer-alerts";
 import { FloatingTimerBar } from "./floating-timer-bar";
 
@@ -18,23 +17,16 @@ export function RestTimer({
   restSeconds: number;
   onDismiss: () => void;
 }) {
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-
   const { secondsLeft, status, start, pause, resume, skip } = useCountdown(
     restSeconds,
-    () => {
-      alertTimerDone("Rest over!");
-      releaseWakeLock(wakeLockRef.current);
-      wakeLockRef.current = null;
-    },
+    () => alertTimerDone("Rest over!"),
   );
+
+  useWakeLock(status === "running" || status === "paused");
 
   useEffect(() => {
     start();
     requestNotificationPermission();
-    requestWakeLock().then((lock) => {
-      wakeLockRef.current = lock;
-    });
   }, [start]);
 
   return (

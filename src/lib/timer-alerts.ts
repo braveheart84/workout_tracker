@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 // v1 scope (PRD 7.5): alerts only need to work while the app is open in the
 // foreground with the screen on, so every API here is best-effort and
 // feature-detected - a browser that lacks or denies one of these just loses
@@ -85,4 +87,41 @@ export function releaseWakeLock(lock: WakeLockSentinel | null) {
   } catch {
     // already released or unsupported - ignore
   }
+}
+
+// Holds the screen-wake lock for as long as `active` is true. The browser
+// auto-releases a wake lock whenever the tab is hidden (switching apps,
+// locking the screen mid-timer) and never reacquires it on its own, so this
+// re-requests it on visibilitychange - otherwise the screen could go back to
+// sleeping a few seconds after the user returns to a still-running timer.
+export function useWakeLock(active: boolean) {
+  const lockRef = useRef<WakeLockSentinel | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+
+    let cancelled = false;
+    requestWakeLock().then((lock) => {
+      if (cancelled) {
+        releaseWakeLock(lock);
+        return;
+      }
+      lockRef.current = lock;
+    });
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || lockRef.current) return;
+      requestWakeLock().then((lock) => {
+        if (!cancelled) lockRef.current = lock;
+      });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      releaseWakeLock(lockRef.current);
+      lockRef.current = null;
+    };
+  }, [active]);
 }

@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { WeightUnit } from "@/generated/prisma/client";
 import { addSetAction } from "./set-actions";
 import { useCountdown } from "@/lib/use-countdown";
 import { formatTime } from "@/lib/format-time";
 import {
   alertTimerDone,
-  releaseWakeLock,
   requestNotificationPermission,
-  requestWakeLock,
+  useWakeLock,
 } from "@/lib/timer-alerts";
 import { FloatingTimerBar } from "./floating-timer-bar";
 
@@ -45,7 +44,6 @@ export function DurationTimer({
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(
     defaults?.weightUnit ?? defaultWeightUnit,
   );
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingLog, setPendingLog] = useState<PendingLog | null>(null);
@@ -56,14 +54,14 @@ export function DurationTimer({
       setPendingLog({ elapsedSeconds, weight, weightUnit });
     });
 
+  useWakeLock(status === "running" || status === "paused");
+
   useEffect(() => {
     if (!pendingLog) return;
     const log = pendingLog;
     let cancelled = false;
 
     async function logSet() {
-      releaseWakeLock(wakeLockRef.current);
-      wakeLockRef.current = null;
       setSubmitting(true);
       setError(null);
 
@@ -100,7 +98,6 @@ export function DurationTimer({
 
   async function handleStart() {
     setError(null);
-    wakeLockRef.current = await requestWakeLock();
     await requestNotificationPermission();
     start();
   }
