@@ -15,36 +15,73 @@ export function useCountdown(
     onCompleteRef.current = onComplete;
   });
 
+  // Wall-clock deadline rather than a per-tick decrement, so backgrounding
+  // the tab (which browsers throttle or fully suspend setInterval for)
+  // can't make the countdown drift - the instant the tab is foregrounded
+  // again, the next tick recomputes from Date.now() and snaps to the
+  // correct value (firing completion immediately if time already ran out
+  // while backgrounded) instead of resuming from a stale count.
+  const deadlineRef = useRef(0);
+  const remainingAtPauseRef = useRef(totalSeconds);
+
+  const tick = useCallback(() => {
+    const remaining = Math.max(
+      0,
+      Math.ceil((deadlineRef.current - Date.now()) / 1000),
+    );
+    setSecondsLeft(remaining);
+    if (remaining <= 0) {
+      setStatus((s) => {
+        if (s !== "running") return s;
+        onCompleteRef.current(totalSeconds);
+        return "done";
+      });
+    }
+  }, [totalSeconds]);
+
   useEffect(() => {
     if (status !== "running") return;
-    const interval = setInterval(() => {
-      setSecondsLeft((s) => {
-        const next = s - 1;
-        if (next <= 0) {
-          setStatus("done");
-          onCompleteRef.current(totalSeconds);
-          return 0;
-        }
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [status, totalSeconds]);
+    tick();
+    const interval = setInterval(tick, 1000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [status, tick]);
 
   const start = useCallback(() => {
+    deadlineRef.current = Date.now() + totalSeconds * 1000;
     setSecondsLeft(totalSeconds);
     setStatus("running");
   }, [totalSeconds]);
 
-  const pause = useCallback(() => setStatus("paused"), []);
-  const resume = useCallback(() => setStatus("running"), []);
+  const pause = useCallback(() => {
+    remainingAtPauseRef.current = Math.max(
+      0,
+      Math.ceil((deadlineRef.current - Date.now()) / 1000),
+    );
+    setStatus("paused");
+  }, []);
+
+  const resume = useCallback(() => {
+    deadlineRef.current = Date.now() + remainingAtPauseRef.current * 1000;
+    setStatus("running");
+  }, []);
 
   const skip = useCallback(() => {
-    setSecondsLeft((s) => {
-      setStatus("done");
-      onCompleteRef.current(totalSeconds - s);
-      return 0;
-    });
+    const remaining = Math.max(
+      0,
+      Math.ceil((deadlineRef.current - Date.now()) / 1000),
+    );
+    setStatus("done");
+    setSecondsLeft(0);
+    onCompleteRef.current(totalSeconds - remaining);
   }, [totalSeconds]);
 
   const reset = useCallback(() => {
