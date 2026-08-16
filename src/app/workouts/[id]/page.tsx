@@ -12,6 +12,7 @@ import { StartWorkoutButton } from "./start-workout-button";
 import { DiscardPlannedWorkoutButton } from "./discard-planned-workout-button";
 import { RescheduleWorkoutForm } from "./reschedule-workout-form";
 import { SaveAsTemplateForm } from "./save-as-template-form";
+import { RunSummary } from "./run-summary";
 
 const STATUS_LABELS: Record<WorkoutSession["status"], string> = {
   PLANNED: "Planned",
@@ -61,6 +62,14 @@ export default async function WorkoutSessionPage({
   ]);
 
   const defaultWeightUnit = user.unitSystem === "IMPERIAL" ? "LB" : "KG";
+  const defaultDistanceUnit = user.unitSystem === "IMPERIAL" ? "mi" : "km";
+  // The run-upload flow (PRD 7.7) always creates exactly one block/exercise/
+  // set for its Running exercise - this is that set, used for the friendlier
+  // unit-aware summary above the generic exercise/set list.
+  const runSet =
+    workoutSession.type === "RUN"
+      ? (blocks[0]?.workoutExercises[0]?.sets[0] ?? null)
+      : null;
 
   // Round 1's weight suggestion for each exercise, so the user isn't
   // starting from a blank box on their first set: an AI-generated exercise
@@ -145,6 +154,16 @@ export default async function WorkoutSessionPage({
           {workoutSession.date.toLocaleDateString()} ·{" "}
           {STATUS_LABELS[workoutSession.status]}
         </p>
+
+        {runSet && runSet.distanceMeters != null && runSet.durationSeconds != null && (
+          <RunSummary
+            distanceMeters={runSet.distanceMeters}
+            durationSeconds={runSet.durationSeconds}
+            avgHeartRateBpm={runSet.avgHeartRateBpm}
+            calories={runSet.calories}
+            unit={defaultDistanceUnit}
+          />
+        )}
 
         <SessionForm workoutSession={workoutSession} disabled={!isInProgress} />
 
