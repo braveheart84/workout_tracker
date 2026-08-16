@@ -186,6 +186,32 @@ export async function discardPlannedWorkoutAction(id: string) {
   redirect("/dashboard");
 }
 
+// Permanently removes a past (COMPLETED or DISCARDED) workout - unlike
+// discard above, which only flips a PLANNED session's status, this deletes
+// the row outright (cascading to its blocks/exercises/sets per the schema's
+// onDelete: Cascade). Deliberately excludes PLANNED/IN_PROGRESS - those
+// have their own discard/reschedule flows for backing out of a workout
+// that hasn't happened (or is happening) yet, and losing in-progress
+// logging to a stray delete click would be a much costlier mistake than
+// removing something already finished. Redirects to /history rather than
+// /dashboard (contrast discardPlannedWorkoutAction) since a past workout
+// being deleted is a history-management action, not a today's-plan one.
+export async function deleteWorkoutSessionAction(id: string) {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  await prisma.workoutSession.deleteMany({
+    where: { id, userId: session.user.id, status: { in: ["COMPLETED", "DISCARDED"] } },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/history");
+  revalidatePath("/week");
+  redirect("/history");
+}
+
 function optionalRating(min: number, max: number, label: string) {
   return z.preprocess(
     (v) => (v === null || v === "" ? null : v),

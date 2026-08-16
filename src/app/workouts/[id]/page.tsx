@@ -13,6 +13,7 @@ import { DiscardPlannedWorkoutButton } from "./discard-planned-workout-button";
 import { RescheduleWorkoutForm } from "./reschedule-workout-form";
 import { SaveAsTemplateForm } from "./save-as-template-form";
 import { RunSummary } from "./run-summary";
+import { DeleteWorkoutButton } from "./delete-workout-button";
 
 const STATUS_LABELS: Record<WorkoutSession["status"], string> = {
   PLANNED: "Planned",
@@ -204,6 +205,10 @@ export default async function WorkoutSessionPage({
 
         {workoutSession.status !== "DISCARDED" && (
           <SaveAsTemplateForm sessionId={workoutSession.id} />
+        )}
+
+        {!isInProgress && !isPlanned && (
+          <DeleteWorkoutButton sessionId={workoutSession.id} />
         )}
       </div>
     </main>
