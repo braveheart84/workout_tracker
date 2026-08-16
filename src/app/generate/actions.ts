@@ -137,6 +137,18 @@ const LIBRARY_NAMING_GUIDANCE =
 const CONSERVATIVE_DEFAULT_GUIDANCE =
   "When recent history, difficulty ratings, or performance data are sparse or unavailable, default to a moderate, conservative starting point for load, volume, and pace rather than an aggressive one - it's a smaller problem for the user to report a session felt easy than to overreach on limited information.";
 
+// A per-request "home workout" / "no equipment" / "bodyweight only" ask
+// describes what's actually available for *this* session, which can
+// legitimately be less than the user's standing equipment list (e.g.
+// traveling, or training at home instead of their usual gym) - so it wins
+// over that standing preference for this generation only, the same way a
+// one-off requested session length overrides the standing duration target
+// (see preferenceSystemLines). Pull-up bar is called out explicitly since
+// it has no plates/weight to load and so is easy to mistake for "no
+// equipment needed," but the user still needs one physically mounted.
+const NO_EQUIPMENT_OVERRIDE_GUIDANCE =
+  "If the user's request for this workout indicates they have no equipment available or want a home/bodyweight-only workout (e.g. mentions 'home workout', 'no equipment', 'bodyweight only'), that overrides their standing available-equipment preference for this generation only - suggest only exercises that need no equipment at all. A pull-up bar counts as equipment for this purpose, not something to assume is available by default - only include a pull-up-bar exercise if the user's request, or their standing equipment preference, explicitly makes one available.";
+
 async function getUserPreferences(userId: string) {
   return prisma.user.findUniqueOrThrow({
     where: { id: userId },
@@ -508,6 +520,7 @@ function preferenceSystemLines(preferences: PreferenceLines): string[] {
       "If the user's available equipment is given, treat it as a hard constraint - never suggest an exercise that needs equipment outside that list.",
     );
   }
+  lines.push(NO_EQUIPMENT_OVERRIDE_GUIDANCE);
   if (preferences.avoidLine) {
     lines.push(
       "If the user has exercises to avoid, treat that as a hard constraint too.",
@@ -607,6 +620,7 @@ function buildRevisionPrompt(
           "The user's available equipment is a hard constraint - never suggest an exercise that needs equipment outside it, even to satisfy the requested change.",
         ]
       : []),
+    NO_EQUIPMENT_OVERRIDE_GUIDANCE,
     ...(avoidLine
       ? ["The user's exercises-to-avoid list is a hard constraint too."]
       : []),
