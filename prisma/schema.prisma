@@ -256,6 +256,10 @@ model WorkoutExercise {
 // was suggested for that specific round, preserved separately from what
 // actually got logged, so generation can later compare the two (7.2).
 // Null for a manually-added exercise, which had no suggestion to snapshot.
+// avgHeartRateBpm/calories (PRD 7.7, run screenshot upload) are effort
+// stats for the set as a whole rather than a prescribable target, so unlike
+// the other fields here they have no suggested_* counterpart - there's
+// nothing an AI-generated plan would predict them to be.
 model Set {
   id                       String      @id @default(uuid())
   workoutExerciseId        String      @map("workout_exercise_id")
@@ -266,6 +270,8 @@ model Set {
   weightUnit               WeightUnit? @map("weight_unit")
   durationSeconds          Int?        @map("duration_seconds")
   distanceMeters           Float?      @map("distance_meters")
+  avgHeartRateBpm          Int?        @map("avg_heart_rate_bpm")
+  calories                 Int?
   suggestedReps            Int?        @map("suggested_reps")
   suggestedWeight          Float?      @map("suggested_weight")
   suggestedWeightUnit      WeightUnit? @map("suggested_weight_unit")

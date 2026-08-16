@@ -109,6 +109,11 @@ function stripUnsupportedStrictKeywords(node: unknown): unknown {
  * a request failure classified as non-transient (see NON_TRANSIENT_STATUSES),
  * where the thrown error's isTransient is false so the caller can tell the
  * user retrying won't help instead of suggesting it will.
+ *
+ * `image`, when passed, is sent alongside the text prompt (PRD 7.7's run
+ * screenshot extraction) - TECH_STACK.md Section 5 calls for both the text
+ * and vision call sites to go through this one wrapper rather than a
+ * separate vision-specific function.
  */
 export async function requestStructuredOutput<T>({
   system,
@@ -116,12 +121,17 @@ export async function requestStructuredOutput<T>({
   schema,
   toolDescription,
   maxTokens = DEFAULT_MAX_TOKENS,
+  image,
 }: {
   system: string;
   prompt: string;
   schema: z.ZodType<T>;
   toolDescription: string;
   maxTokens?: number;
+  image?: {
+    mediaType: Anthropic.Base64ImageSource["media_type"];
+    base64Data: string;
+  };
 }): Promise<T> {
   const anthropic = getClient();
 
@@ -132,13 +142,27 @@ export async function requestStructuredOutput<T>({
     unknown
   >;
 
+  const content: Anthropic.MessageParam["content"] = image
+    ? [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: image.mediaType,
+            data: image.base64Data,
+          },
+        },
+        { type: "text", text: prompt },
+      ]
+    : prompt;
+
   let response;
   try {
     response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: maxTokens,
       system,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content }],
       tools: [
         {
           name: TOOL_NAME,

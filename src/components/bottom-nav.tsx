@@ -12,12 +12,14 @@ import {
   History,
   BookOpen,
   LayoutTemplate,
+  Footprints,
   Settings,
   LogOut,
 } from "lucide-react";
 import { signOutAction } from "@/app/sign-out-action";
 
 const MORE_LINKS = [
+  { href: "/runs/new", label: "Log a run", icon: Footprints },
   { href: "/week", label: "Week view", icon: CalendarDays },
   { href: "/history", label: "History", icon: History },
   { href: "/exercises", label: "Exercise library", icon: BookOpen },
