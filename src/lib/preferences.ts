@@ -63,5 +63,6 @@ export const preferencesSchema = z.object({
       .nullable(),
   ),
   cardioFinisherPreference: z.enum(CARDIO_FINISHER_OPTIONS),
-  availableEquipment: z.array(z.enum(EQUIPMENT_OPTIONS)),
+  homeEquipment: z.array(z.enum(EQUIPMENT_OPTIONS)),
+  gymEquipment: z.array(z.enum(EQUIPMENT_OPTIONS)),
 });

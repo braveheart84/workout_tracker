@@ -22,11 +22,18 @@ export async function completeOnboardingAction(
     redirect("/login");
   }
 
+  // The wizard collects one equipment list, not separate gym/home ones -
+  // it's meant to be a quick first pass, not the full settings surface -
+  // so it seeds both new columns the same way the split-equipment
+  // migration backfilled existing users. The user can split them apart
+  // afterward in Account settings.
+  const equipment = formData.getAll("availableEquipment");
   const parsed = preferencesSchema.safeParse({
     unitSystem: formData.get("unitSystem"),
     preferredDurationMinutes: formData.get("preferredDurationMinutes"),
     cardioFinisherPreference: formData.get("cardioFinisherPreference"),
-    availableEquipment: formData.getAll("availableEquipment"),
+    homeEquipment: equipment,
+    gymEquipment: equipment,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
@@ -38,7 +45,8 @@ export async function completeOnboardingAction(
       unitSystem: parsed.data.unitSystem,
       preferredDurationMinutes: parsed.data.preferredDurationMinutes,
       cardioFinisherPreference: parsed.data.cardioFinisherPreference,
-      availableEquipment: parsed.data.availableEquipment,
+      homeEquipment: parsed.data.homeEquipment,
+      gymEquipment: parsed.data.gymEquipment,
       onboardingCompletedAt: new Date(),
     },
   });

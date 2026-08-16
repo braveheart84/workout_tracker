@@ -137,13 +137,36 @@ const LIBRARY_NAMING_GUIDANCE =
 const CONSERVATIVE_DEFAULT_GUIDANCE =
   "When recent history, difficulty ratings, or performance data are sparse or unavailable, default to a moderate, conservative starting point for load, volume, and pace rather than an aggressive one - it's a smaller problem for the user to report a session felt easy than to overreach on limited information.";
 
+// What's on hand differs by where the user trains, so equipment is tracked
+// as two separate standing lists (gym/home) rather than one - this tells
+// the model which list governs a given request. Naming a location on its
+// own (e.g. "home workout") only narrows which list applies; it is
+// deliberately NOT the same as asking for no equipment at all (a home gym
+// can still have dumbbells) - that distinction is what
+// NO_EQUIPMENT_OVERRIDE_GUIDANCE below handles separately.
+const LOCATION_EQUIPMENT_GUIDANCE =
+  "The user's available equipment differs by where they train, given below as a gym list and a home list (either may be empty). Pick whichever list matches this workout's location, based on the user's request: a request that says or implies a home session uses the home list as the hard constraint and ignores the gym list; a request that says or implies a gym session uses the gym list and ignores the home list; if the request doesn't say, treat the union of both lists as available. Never suggest an exercise that needs equipment outside whichever list applies - naming a location on its own means \"use that location's list\", not \"no equipment\".";
+
+// A per-request "no equipment" or "bodyweight only" ask describes what's
+// actually available for *this* session regardless of location - e.g.
+// traveling, or deliberately skipping the home dumbbells today - so it
+// wins over both standing equipment lists for this generation only, the
+// same way a one-off requested session length overrides the standing
+// duration target (see preferenceSystemLines). Pull-up bar is called out
+// explicitly since it has no plates/weight to load and so is easy to
+// mistake for "no equipment needed," but the user still needs one
+// physically mounted.
+const NO_EQUIPMENT_OVERRIDE_GUIDANCE =
+  "Separately, if the user explicitly asks for a no-equipment or bodyweight-only workout, that overrides the gym and home equipment lists entirely for this generation only, regardless of which location (if any) they also mention - suggest only exercises that need no equipment at all. A pull-up bar counts as equipment for this purpose, not something to assume is available by default - only include a pull-up-bar exercise if the applicable equipment list explicitly includes one.";
+
 async function getUserPreferences(userId: string) {
   return prisma.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
       preferredDurationMinutes: true,
       cardioFinisherPreference: true,
-      availableEquipment: true,
+      homeEquipment: true,
+      gymEquipment: true,
       avoidedExercisesNote: true,
     },
   });
@@ -157,7 +180,8 @@ async function getUserPreferences(userId: string) {
 function formatPreferenceLines(preferences: {
   preferredDurationMinutes: number | null;
   cardioFinisherPreference: "ALWAYS" | "NEVER" | "SOMETIMES";
-  availableEquipment: string[];
+  homeEquipment: string[];
+  gymEquipment: string[];
   avoidedExercisesNote: string | null;
 }) {
   const durationLine =
@@ -172,16 +196,27 @@ function formatPreferenceLines(preferences: {
         ? "The user never wants a cardio finisher block - keep the session focused on the main work only."
         : null;
 
-  const equipmentLine =
-    preferences.availableEquipment.length > 0
-      ? `Only suggest exercises usable with this equipment: ${preferences.availableEquipment.join(", ")}.`
+  const gymEquipmentLine =
+    preferences.gymEquipment.length > 0
+      ? `Equipment available at the gym: ${preferences.gymEquipment.join(", ")}.`
+      : null;
+
+  const homeEquipmentLine =
+    preferences.homeEquipment.length > 0
+      ? `Equipment available at home: ${preferences.homeEquipment.join(", ")}.`
       : null;
 
   const avoidLine = preferences.avoidedExercisesNote
     ? `The user has asked to avoid: ${preferences.avoidedExercisesNote}. Do not suggest exercises that conflict with this.`
     : null;
 
-  return { durationLine, cardioFinisherLine, equipmentLine, avoidLine };
+  return {
+    durationLine,
+    cardioFinisherLine,
+    gymEquipmentLine,
+    homeEquipmentLine,
+    avoidLine,
+  };
 }
 
 // PRD 7.2: "consistently 'too easy' ratings ... should nudge the next
@@ -406,8 +441,13 @@ async function buildGenerationContext(userId: string) {
 
   const difficultyTrendLine = summarizeDifficultyTrend(recentSessions);
   const performanceDeltaLines = summarizePerformanceDeltas(recentSessions);
-  const { durationLine, cardioFinisherLine, equipmentLine, avoidLine } =
-    formatPreferenceLines(preferences);
+  const {
+    durationLine,
+    cardioFinisherLine,
+    gymEquipmentLine,
+    homeEquipmentLine,
+    avoidLine,
+  } = formatPreferenceLines(preferences);
 
   return {
     historyLines,
@@ -416,7 +456,8 @@ async function buildGenerationContext(userId: string) {
     performanceDeltaLines,
     durationLine,
     cardioFinisherLine,
-    equipmentLine,
+    gymEquipmentLine,
+    homeEquipmentLine,
     avoidLine,
   };
 }
@@ -484,7 +525,8 @@ async function getBaselineSessionLines(userId: string, sessionId: string) {
 type PreferenceLines = {
   durationLine: string | null;
   cardioFinisherLine: string | null;
-  equipmentLine: string | null;
+  gymEquipmentLine: string | null;
+  homeEquipmentLine: string | null;
   avoidLine: string | null;
 };
 
@@ -503,11 +545,10 @@ function preferenceSystemLines(preferences: PreferenceLines): string[] {
       "If the user has a fixed cardio-finisher preference, honor it exactly rather than deciding case by case.",
     );
   }
-  if (preferences.equipmentLine) {
-    lines.push(
-      "If the user's available equipment is given, treat it as a hard constraint - never suggest an exercise that needs equipment outside that list.",
-    );
+  if (preferences.gymEquipmentLine || preferences.homeEquipmentLine) {
+    lines.push(LOCATION_EQUIPMENT_GUIDANCE);
   }
+  lines.push(NO_EQUIPMENT_OVERRIDE_GUIDANCE);
   if (preferences.avoidLine) {
     lines.push(
       "If the user has exercises to avoid, treat that as a hard constraint too.",
@@ -523,7 +564,11 @@ function preferencePromptLines(preferences: PreferenceLines): string[] {
     preferences.cardioFinisherLine ??
       "Cardio finisher: no fixed preference given.",
     "",
-    preferences.equipmentLine ?? "Available equipment: no preference given.",
+    preferences.gymEquipmentLine ??
+      "Equipment available at the gym: no preference given.",
+    "",
+    preferences.homeEquipmentLine ??
+      "Equipment available at home: no preference given.",
     "",
     preferences.avoidLine ?? "Exercises to avoid: none given.",
   ];
@@ -592,7 +637,8 @@ function buildRevisionPrompt(
   feedback: string,
   targetDate: Date,
   libraryLines: string[],
-  equipmentLine: string | null,
+  gymEquipmentLine: string | null,
+  homeEquipmentLine: string | null,
   avoidLine: string | null,
   durationLine: string | null,
 ) {
@@ -602,11 +648,8 @@ function buildRevisionPrompt(
     "Apply the requested change and return the complete revised workout structure matching the provided tool schema - not just the changed parts.",
     "Keep everything else about the workout the same unless the requested change reasonably requires other adjustments (e.g. swapping an exercise for one working the same muscle group, or only touching the rounds/rest of the block the feedback is about).",
     "When you land on an exercise that's essentially the same movement as one already in the user's library, use that exact library name instead of inventing a near-duplicate - but the library is a naming-consistency aid only, not a menu to pick from.",
-    ...(equipmentLine
-      ? [
-          "The user's available equipment is a hard constraint - never suggest an exercise that needs equipment outside it, even to satisfy the requested change.",
-        ]
-      : []),
+    ...(gymEquipmentLine || homeEquipmentLine ? [LOCATION_EQUIPMENT_GUIDANCE] : []),
+    NO_EQUIPMENT_OVERRIDE_GUIDANCE,
     ...(avoidLine
       ? ["The user's exercises-to-avoid list is a hard constraint too."]
       : []),
@@ -632,7 +675,9 @@ function buildRevisionPrompt(
     "",
     `Requested change: ${feedback}`,
     "",
-    equipmentLine ?? "Available equipment: no preference given.",
+    gymEquipmentLine ?? "Equipment available at the gym: no preference given.",
+    "",
+    homeEquipmentLine ?? "Equipment available at home: no preference given.",
     "",
     avoidLine ?? "Exercises to avoid: none given.",
     "",
@@ -801,7 +846,8 @@ export async function generateWorkoutSuggestionAction(
     performanceDeltaLines,
     durationLine,
     cardioFinisherLine,
-    equipmentLine,
+    gymEquipmentLine,
+    homeEquipmentLine,
     avoidLine,
   } = await buildGenerationContext(session.user.id);
   const { system, prompt } = buildPrompt(
@@ -811,7 +857,13 @@ export async function generateWorkoutSuggestionAction(
     libraryLines,
     difficultyTrendLine,
     performanceDeltaLines,
-    { durationLine, cardioFinisherLine, equipmentLine, avoidLine },
+    {
+      durationLine,
+      cardioFinisherLine,
+      gymEquipmentLine,
+      homeEquipmentLine,
+      avoidLine,
+    },
   );
 
   try {
@@ -970,7 +1022,8 @@ export async function generateWorkoutPlanAction(
     performanceDeltaLines,
     durationLine,
     cardioFinisherLine,
-    equipmentLine,
+    gymEquipmentLine,
+    homeEquipmentLine,
     avoidLine,
   } = await buildGenerationContext(session.user.id);
   const { system, prompt } = buildMultiDayPrompt(
@@ -982,7 +1035,13 @@ export async function generateWorkoutPlanAction(
     performanceDeltaLines,
     focusTags,
     baseline,
-    { durationLine, cardioFinisherLine, equipmentLine, avoidLine },
+    {
+      durationLine,
+      cardioFinisherLine,
+      gymEquipmentLine,
+      homeEquipmentLine,
+      avoidLine,
+    },
   );
 
   try {
@@ -1086,14 +1145,20 @@ export async function reviseWorkoutSuggestionAction(
   const targetDate = parsedDate.data;
   const dateIso = targetDate.toISOString().slice(0, 10);
 
-  const { libraryLines, equipmentLine, avoidLine, durationLine } =
-    await buildGenerationContext(session.user.id);
+  const {
+    libraryLines,
+    gymEquipmentLine,
+    homeEquipmentLine,
+    avoidLine,
+    durationLine,
+  } = await buildGenerationContext(session.user.id);
   const { system, prompt } = buildRevisionPrompt(
     parsedCurrent.data,
     parsedFeedback.data,
     targetDate,
     libraryLines,
-    equipmentLine,
+    gymEquipmentLine,
+    homeEquipmentLine,
     avoidLine,
     durationLine,
   );
