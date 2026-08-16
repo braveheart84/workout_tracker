@@ -151,6 +151,11 @@ export function OnboardingWizard() {
             <legend className="text-sm font-medium">
               Available equipment (optional, pick any)
             </legend>
+            <p className="text-muted-foreground text-xs">
+              Used for both gym and home workouts to start - split them
+              apart later in Account settings if what you have access to
+              differs by location.
+            </p>
             {EQUIPMENT_OPTIONS.map((option) => (
               <label key={option} className="flex items-center gap-2 text-sm">
                 <input

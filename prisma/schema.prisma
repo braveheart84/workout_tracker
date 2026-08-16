@@ -81,17 +81,21 @@ enum Equipment {
 }
 
 // PRD Section 9 (User). preferredDurationMinutes/cardioFinisherPreference/
-// availableEquipment/avoidedExercisesNote are standing generation
+// homeEquipment/gymEquipment/avoidedExercisesNote are standing generation
 // preferences - captured once here instead of the user having to restate
 // them (session length, cardio finisher, equipment, injuries/dislikes) in
-// free text on every single generation request. onboardingCompletedAt is
-// null until the new-user onboarding wizard is finished OR explicitly
-// skipped - either one is terminal, so the dashboard only redirects into
-// onboarding while it's still null. name is required going forward
-// (collected at signup, for the dashboard's personalized greeting) but
-// stays nullable so accounts created before this field existed don't need
-// a backfill - they just see a name-less greeting until they set one in
-// Settings.
+// free text on every single generation request. homeEquipment/gymEquipment
+// replace a single availableEquipment list (migration
+// 20260816_split_equipment_by_location backfills both from it) - what's
+// on hand differs by location, and generation needs to know which list
+// applies to a given request (see generate/actions.ts's
+// preferenceSystemLines). onboardingCompletedAt is null until the
+// new-user onboarding wizard is finished OR explicitly skipped - either
+// one is terminal, so the dashboard only redirects into onboarding while
+// it's still null. name is required going forward (collected at signup,
+// for the dashboard's personalized greeting) but stays nullable so
+// accounts created before this field existed don't need a backfill - they
+// just see a name-less greeting until they set one in Settings.
 model User {
   id                       String                   @id @default(uuid())
   email                    String                   @unique
@@ -101,7 +105,8 @@ model User {
   remindersEnabled         Boolean                  @default(true) @map("reminders_enabled")
   preferredDurationMinutes Int?                     @map("preferred_duration_minutes")
   cardioFinisherPreference CardioFinisherPreference @default(SOMETIMES) @map("cardio_finisher_preference")
-  availableEquipment       Equipment[]              @map("available_equipment")
+  homeEquipment            Equipment[]              @map("home_equipment")
+  gymEquipment             Equipment[]              @map("gym_equipment")
   avoidedExercisesNote     String?                  @map("avoided_exercises_note")
   onboardingCompletedAt    DateTime?                @map("onboarding_completed_at")
   createdAt                DateTime                 @default(now()) @map("created_at")

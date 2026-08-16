@@ -18,7 +18,8 @@ export default async function SettingsPage() {
       remindersEnabled: true,
       preferredDurationMinutes: true,
       cardioFinisherPreference: true,
-      availableEquipment: true,
+      homeEquipment: true,
+      gymEquipment: true,
       avoidedExercisesNote: true,
     },
   });
@@ -35,7 +36,8 @@ export default async function SettingsPage() {
           currentRemindersEnabled={user.remindersEnabled}
           currentPreferredDurationMinutes={user.preferredDurationMinutes}
           currentCardioFinisherPreference={user.cardioFinisherPreference}
-          currentAvailableEquipment={user.availableEquipment}
+          currentHomeEquipment={user.homeEquipment}
+          currentGymEquipment={user.gymEquipment}
           currentAvoidedExercisesNote={user.avoidedExercisesNote}
         />
         <div className="h-20" aria-hidden="true" />

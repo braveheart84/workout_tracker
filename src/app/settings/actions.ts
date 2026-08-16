@@ -33,7 +33,8 @@ export async function updateSettingsAction(
     unitSystem: formData.get("unitSystem"),
     preferredDurationMinutes: formData.get("preferredDurationMinutes"),
     cardioFinisherPreference: formData.get("cardioFinisherPreference"),
-    availableEquipment: formData.getAll("availableEquipment"),
+    homeEquipment: formData.getAll("homeEquipment"),
+    gymEquipment: formData.getAll("gymEquipment"),
     avoidedExercisesNote: formData.get("avoidedExercisesNote") ?? "",
   });
 
@@ -53,7 +54,8 @@ export async function updateSettingsAction(
       remindersEnabled,
       preferredDurationMinutes: parsed.data.preferredDurationMinutes,
       cardioFinisherPreference: parsed.data.cardioFinisherPreference,
-      availableEquipment: parsed.data.availableEquipment,
+      homeEquipment: parsed.data.homeEquipment,
+      gymEquipment: parsed.data.gymEquipment,
       avoidedExercisesNote: parsed.data.avoidedExercisesNote,
     },
   });

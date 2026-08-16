@@ -17,7 +17,8 @@ export function SettingsForm({
   currentRemindersEnabled,
   currentPreferredDurationMinutes,
   currentCardioFinisherPreference,
-  currentAvailableEquipment,
+  currentHomeEquipment,
+  currentGymEquipment,
   currentAvoidedExercisesNote,
 }: {
   currentName: string | null;
@@ -25,7 +26,8 @@ export function SettingsForm({
   currentRemindersEnabled: boolean;
   currentPreferredDurationMinutes: number | null;
   currentCardioFinisherPreference: CardioFinisherPreference;
-  currentAvailableEquipment: Equipment[];
+  currentHomeEquipment: Equipment[];
+  currentGymEquipment: Equipment[];
   currentAvoidedExercisesNote: string | null;
 }) {
   const [state, formAction, pending] = useActionState<SettingsState, FormData>(
@@ -120,17 +122,47 @@ export function SettingsForm({
           ))}
         </fieldset>
 
+        <div className="space-y-1">
+          <p className="text-sm">Equipment</p>
+          <p className="text-muted-foreground text-xs">
+            What&apos;s available differs by where you train, so gym and home
+            are tracked separately - a request for a home workout only draws
+            on the home list below. Asking for a no-equipment workout, at
+            either location, always overrides both lists.
+          </p>
+        </div>
+
         <fieldset className="space-y-2">
           <legend className="text-sm">
-            Available equipment (optional, pick any)
+            Available at the gym (optional, pick any)
           </legend>
           {EQUIPMENT_OPTIONS.map((option) => (
             <label key={option} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                name="availableEquipment"
+                name="gymEquipment"
                 value={option}
-                defaultChecked={currentAvailableEquipment.includes(option)}
+                defaultChecked={currentGymEquipment.includes(option)}
+              />
+              {EQUIPMENT_LABELS[option]}
+            </label>
+          ))}
+          <p className="text-muted-foreground text-xs">
+            Leave everything unchecked for no equipment preference.
+          </p>
+        </fieldset>
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm">
+            Available at home (optional, pick any)
+          </legend>
+          {EQUIPMENT_OPTIONS.map((option) => (
+            <label key={option} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="homeEquipment"
+                value={option}
+                defaultChecked={currentHomeEquipment.includes(option)}
               />
               {EQUIPMENT_LABELS[option]}
             </label>
