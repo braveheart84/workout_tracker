@@ -51,12 +51,13 @@ function generationErrorMessage(
   return transientMessage;
 }
 
-// Matches PRD 7.2's generation horizon (a range request asks for 1-7 days) -
-// today through 6 days out, shared by both the single-day date field and
-// the multi-day dates array below. "Today" depends on the user's timezone
-// (see src/lib/user-date.ts), which is only known once read from cookies
-// inside a request, so this is async and called fresh per-action rather
-// than computed once at module scope.
+// Matches PRD 7.2's generation horizon for the multi-day "range of days"
+// flow (a range request asks for 1-7 days) - today through 6 days out. Only
+// the multi-day dates array (makeDatesArraySchema below) uses maxUtc;
+// single-day actions only need todayUtc, since they have no upper bound.
+// "Today" depends on the user's timezone (see src/lib/user-date.ts), which
+// is only known once read from cookies inside a request, so this is async
+// and called fresh per-action rather than computed once at module scope.
 async function getGenerationWindow() {
   const timezone = await getUserTimezone();
   const todayUtc = todayInTimezone(timezone);
@@ -65,16 +66,19 @@ async function getGenerationWindow() {
   return { todayUtc, maxUtc };
 }
 
-function makeDateSchema(todayUtc: Date, maxUtc: Date) {
+// Single-day actions (generate/import/revise/accept) have no upper bound -
+// a user planning ahead (an event, a trip, a coach-assigned date) should be
+// able to schedule for any future date, not just this week. Only the
+// multi-day "range of days" flow (makeDatesArraySchema below) stays
+// week-scoped, since that mode's whole shape - auto-spacing or picking days
+// "this week" - is inherently about the current week.
+function makeDateSchema(todayUtc: Date) {
   return z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date.")
     .transform((v) => new Date(`${v}T00:00:00.000Z`))
     .refine((d) => !Number.isNaN(d.getTime()), "Pick a valid date.")
-    .refine(
-      (d) => d >= todayUtc && d <= maxUtc,
-      "Pick a date within the next 7 days.",
-    );
+    .refine((d) => d >= todayUtc, "Pick today or a future date.");
 }
 
 // PRD 7.2's "range of days" scope, refined per user feedback after PR-16's
@@ -829,8 +833,8 @@ export async function generateWorkoutSuggestionAction(
   const freeText = parsedFreeText.success ? parsedFreeText.data : "";
 
   const dateInput = formData.get("date");
-  const { todayUtc, maxUtc } = await getGenerationWindow();
-  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(dateInput);
+  const { todayUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc).safeParse(dateInput);
   if (!parsedDate.success) {
     return {
       error: parsedDate.error.issues[0]?.message ?? "Pick a valid date.",
@@ -913,8 +917,8 @@ export async function importWorkoutTextAction(
     };
   }
 
-  const { todayUtc, maxUtc } = await getGenerationWindow();
-  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(
+  const { todayUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc).safeParse(
     formData.get("date"),
   );
   if (!parsedDate.success) {
@@ -1133,8 +1137,8 @@ export async function reviseWorkoutSuggestionAction(
     };
   }
 
-  const { todayUtc, maxUtc } = await getGenerationWindow();
-  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(
+  const { todayUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc).safeParse(
     formData.get("date"),
   );
   if (!parsedDate.success) {
@@ -1211,8 +1215,8 @@ export async function acceptWorkoutSuggestionAction(
     return { error: "Invalid suggestion data." };
   }
 
-  const { todayUtc, maxUtc } = await getGenerationWindow();
-  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(
+  const { todayUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc).safeParse(
     formData.get("date"),
   );
   if (!parsedDate.success) {
@@ -1265,8 +1269,8 @@ export async function acceptDayInPlanAction(
     return { error: "Invalid suggestion data." };
   }
 
-  const { todayUtc, maxUtc } = await getGenerationWindow();
-  const parsedDate = makeDateSchema(todayUtc, maxUtc).safeParse(
+  const { todayUtc } = await getGenerationWindow();
+  const parsedDate = makeDateSchema(todayUtc).safeParse(
     formData.get("date"),
   );
   if (!parsedDate.success) {

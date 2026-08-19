@@ -14,12 +14,10 @@ import { SuggestionHistory } from "./suggestion-history";
 
 export function GenerateForm({
   todayIso,
-  maxIso,
   defaultDateIso,
   templates,
 }: {
   todayIso: string;
-  maxIso: string;
   defaultDateIso: string;
   templates: { id: string; name: string; structure: WorkoutSuggestion }[];
 }) {
@@ -116,7 +114,6 @@ export function GenerateForm({
               value={dateValue}
               onChange={(e) => setDateValue(e.target.value)}
               min={todayIso}
-              max={maxIso}
               className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
