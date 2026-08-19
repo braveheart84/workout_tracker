@@ -18,21 +18,18 @@ export default async function GeneratePage({
 
   const timezone = await getUserTimezone();
   const todayUtc = todayInTimezone(timezone);
-  const maxUtc = new Date(todayUtc);
-  maxUtc.setUTCDate(maxUtc.getUTCDate() + 6);
   const todayIso = todayUtc.toISOString().slice(0, 10);
-  const maxIso = maxUtc.toISOString().slice(0, 10);
 
   // The week view links here with ?date=... to pre-fill the day the user
-  // clicked "Generate" for. Only trust it as a default if it's actually
-  // within the generation window - otherwise fall back to today, same as
-  // if no date were given at all.
+  // clicked "Generate" for. Only trust it as a default if it isn't in the
+  // past - otherwise fall back to today, same as if no date were given at
+  // all. Single-day generation has no upper bound (see actions.ts), so
+  // there's no ceiling to check here either.
   const { date: requestedDate, tab } = await searchParams;
   const defaultDateIso =
     requestedDate &&
     /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
-    requestedDate >= todayIso &&
-    requestedDate <= maxIso
+    requestedDate >= todayIso
       ? requestedDate
       : todayIso;
 
@@ -82,7 +79,6 @@ export default async function GeneratePage({
         </h1>
         <GenerateModeToggle
           todayIso={todayIso}
-          maxIso={maxIso}
           defaultDateIso={defaultDateIso}
           templates={templates}
           baselineSessions={baselineSessions}

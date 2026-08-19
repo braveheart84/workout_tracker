@@ -20,11 +20,9 @@ import {
 // already covers the "throw this away and reconvert" case.
 export function ImportWorkoutForm({
   todayIso,
-  maxIso,
   defaultDateIso,
 }: {
   todayIso: string;
-  maxIso: string;
   defaultDateIso: string;
 }) {
   const [importState, importAction, importPending] = useActionState<
@@ -83,7 +81,6 @@ export function ImportWorkoutForm({
             name="date"
             defaultValue={defaultDateIso}
             min={todayIso}
-            max={maxIso}
             className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
           />
         </div>

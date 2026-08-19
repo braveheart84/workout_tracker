@@ -12,14 +12,12 @@ import { ImportWorkoutForm } from "./import-workout-form";
 // server round-trip needed to switch.
 export function GenerateModeToggle({
   todayIso,
-  maxIso,
   defaultDateIso,
   templates,
   baselineSessions,
   initialMode = "single",
 }: {
   todayIso: string;
-  maxIso: string;
   defaultDateIso: string;
   templates: { id: string; name: string; structure: WorkoutSuggestion }[];
   baselineSessions: { id: string; dateIso: string; label: string | null }[];
@@ -67,7 +65,6 @@ export function GenerateModeToggle({
       {mode === "single" ? (
         <GenerateForm
           todayIso={todayIso}
-          maxIso={maxIso}
           defaultDateIso={defaultDateIso}
           templates={templates}
         />
@@ -77,11 +74,7 @@ export function GenerateModeToggle({
           baselineSessions={baselineSessions}
         />
       ) : (
-        <ImportWorkoutForm
-          todayIso={todayIso}
-          maxIso={maxIso}
-          defaultDateIso={defaultDateIso}
-        />
+        <ImportWorkoutForm todayIso={todayIso} defaultDateIso={defaultDateIso} />
       )}
     </div>
   );
