@@ -42,6 +42,12 @@ export function ImportWorkoutForm({
     suggestion: WorkoutSuggestion;
     date: string;
   } | null>(null);
+  // Controlled (rather than defaultValue) so the picked date survives a
+  // form submission - React/the browser reset uncontrolled fields back to
+  // their defaultValue once the action tied to the form completes, which
+  // was silently reverting this field to defaultDateIso (usually today)
+  // right after import.
+  const [dateValue, setDateValue] = useState(defaultDateIso);
   const [prevImportState, setPrevImportState] = useState(importState);
   if (importState !== prevImportState) {
     setPrevImportState(importState);
@@ -79,7 +85,8 @@ export function ImportWorkoutForm({
             id="importDate"
             type="date"
             name="date"
-            defaultValue={defaultDateIso}
+            value={dateValue}
+            onChange={(e) => setDateValue(e.target.value)}
             min={todayIso}
             className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
           />
